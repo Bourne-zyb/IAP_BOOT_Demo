@@ -19,11 +19,12 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "can.h"
+#include "usb_device.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "usbd_cdc_if.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -68,7 +69,7 @@ static void CANFilter_Config(void)
     sFilterConfig.FilterMaskIdHigh = 0x0000;               // ����ģʽ�£��洢��������?
     sFilterConfig.FilterMaskIdLow = 0x0000;                // ����ģʽ�£��洢��������?
     sFilterConfig.FilterFIFOAssignment = 0;                // ����ͨ��������ƥ��󣬴洢���ĸ�FIFO
-    sFilterConfig.FilterActivation = ENABLE;               // ���������??
+    sFilterConfig.FilterActivation = ENABLE;               // ���������??
     sFilterConfig.SlaveStartFilterBank = 0;
 
     if (HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig) != HAL_OK) {
@@ -78,6 +79,21 @@ static void CANFilter_Config(void)
 
     //printf("CAN Filter Config Success!\r\n");
 }
+
+//uint8_t UserTxBufferFS[100];
+//void send()
+//{
+//	uint32_t len = 0;
+//        
+//	while(1)
+//    {
+//		
+//        CDC_Transmit_FS(UserTxBufferFS, len);
+//          
+//        HAL_Delay(1000);        
+//	}
+//}
+
 
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
@@ -90,16 +106,16 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 
 //    if(can_Rx.IDE == CAN_ID_STD)
 //    {
-//        len += sprintf((char *)&uartBuf[len], "��׼ID��%#X; ", can_Rx.StdId);
+//        len += sprintf((char *)&uartBuf[len], "��׼ID��%#X; ", can_Rx.StdId);
 //    }
 //    else if(can_Rx.IDE == CAN_ID_EXT)
 //    {
-//        len += sprintf((char *)&uartBuf[len], "��չID��%#X; ", can_Rx.ExtId);
+//        len += sprintf((char *)&uartBuf[len], "��չID��%#X; ", can_Rx.ExtId);
 //    }
 //    
 //    if(can_Rx.RTR == CAN_RTR_DATA)
 //    {
-//        len += sprintf((char *)&uartBuf[len], "����֡; ����Ϊ��");
+//        len += sprintf((char *)&uartBuf[len], "����֡; ����Ϊ��");
 //        
 //        for(int i = 0; i < can_Rx.DLC; i ++)
 //        {
@@ -111,7 +127,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 //    }
 //    else if(can_Rx.RTR == CAN_RTR_REMOTE)
 //    {
-//        len += sprintf((char *)&uartBuf[len], "ң��֡\r\n");
+//        len += sprintf((char *)&uartBuf[len], "ң��֡\r\n");
 //        HAL_UART_Transmit(&huart1, uartBuf, len, 100);        
 //    }    
 }
@@ -122,17 +138,17 @@ void cansend(uint32_t id, uint8_t* data, uint8_t dlc) {
   CAN_TxHeaderTypeDef txHeader;
   uint32_t txMailbox;
 
-  // 设置CAN报文�??
-  txHeader.StdId = id;          // 设置标准标识�??
-  txHeader.ExtId = 0x00;           // 设置扩展标识�??
-  txHeader.RTR = CAN_RTR_DATA;  // 数据�??
-  txHeader.IDE = CAN_ID_STD;    // 标准标识�??
+  // 设置CAN报文�??
+  txHeader.StdId = id;          // 设置标准标识�??
+  txHeader.ExtId = 0x00;           // 设置扩展标识�??
+  txHeader.RTR = CAN_RTR_DATA;  // 数据�??
+  txHeader.IDE = CAN_ID_STD;    // 标准标识�??
   txHeader.DLC = dlc;           // 数据长度
 
   // 发�?�CAN数据
   if (HAL_CAN_AddTxMessage(&hcan1, &txHeader, data, &txMailbox) != HAL_OK) {
       while (1);
-      // 处理发�?�错�??
+      // 处理发�?�错�??
   }
 }
 
@@ -141,7 +157,7 @@ void send_hex_data() {
   data[0] = 0x12;  // 数据的高字节
   data[1] = 0x34;  // 数据的低字节
 
-  cansend(0x125, data, 8);  // 发�?�数据，ID�??0x123，数据为�?? 0x 数据长度�??2
+  cansend(0x125, data, 8);  // 发�?�数据，ID�??0x123，数据为�?? 0x 数据长度�??2
 }
 /* USER CODE END 0 */
 
@@ -174,7 +190,9 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_CAN1_Init();
+
+  MX_USB_DEVICE_Init();
+	  MX_CAN1_Init();
   /* USER CODE BEGIN 2 */
 
   HAL_GPIO_WritePin(HCAN_RS_EN1_GPIO_Port, HCAN_RS_EN1_Pin, GPIO_PIN_RESET);
@@ -220,6 +238,7 @@ int main(void)
 
     send_hex_data();
 
+	//	CDC_Transmit_FS("fuck\r\n", 7);
 		
     /* USER CODE END WHILE */
 
@@ -247,7 +266,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLM = 8;
   RCC_OscInitStruct.PLL.PLLN = 240;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 4;
+  RCC_OscInitStruct.PLL.PLLQ = 5;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();

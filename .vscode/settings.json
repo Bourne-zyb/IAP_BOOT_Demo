@@ -3,6 +3,7 @@
         "main.h": "c",
         "stm32f2xx_hal.h": "c",
         "can.h": "c",
-        "gpio.h": "c"
+        "gpio.h": "c",
+        "usbd_cdc_if.h": "c"
     }
 }
