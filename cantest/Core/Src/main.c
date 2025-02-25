@@ -56,6 +56,22 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+static void handle_cantest_welcome(void) {
+  uint8_t usbBuf[200]; // 用于存储要发送的字符串
+  uint16_t len = 0;
+
+  // 欢迎语
+  len += sprintf((char *)&usbBuf[len], "Welcome to CAN Communication!\r\n");
+  len += sprintf((char *)&usbBuf[len], "Available Commands:\r\n");
+  len += sprintf((char *)&usbBuf[len], "1. restart - Reset the CAN receive counter and expected data.\r\n");
+  len += sprintf((char *)&usbBuf[len], "2. show    - Display the current CAN receive counter value.\r\n");
+
+  // 使用 CDC_Transmit_FS 发送数据
+  CDC_Transmit_FS(usbBuf, len);
+}
+
+
 /* CAN过滤配置函数 */
 static void CANFilter_Config(void)
 {
@@ -80,59 +96,81 @@ static void CANFilter_Config(void)
     //printf("CAN Filter Config Success!\r\n");
 }
 
-//uint8_t UserTxBufferFS[100];
-//void send()
-//{
-//	uint32_t len = 0;
-//        
-//	while(1)
-//    {
-//		
-//        CDC_Transmit_FS(UserTxBufferFS, len);
-//          
-//        HAL_Delay(1000);        
-//	}
-//}
-
-
-
+uint8_t expectedData[8] = {0}; // 用于存储预期的数据
+uint32_t canrecv_cnt;
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
     uint16_t len = 0;
-		CAN_RxHeaderTypeDef can_Rx;
-		uint8_t recvBuf[8];
+    CAN_RxHeaderTypeDef can_Rx;
+    uint8_t recvBuf[8];
+    uint8_t usbBuf[200];  // Added 200-byte array for USB virtual serial port print
+    
     
     HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &can_Rx, recvBuf);
+		canrecv_cnt++;
+		
+		// 数据连续性校验
+    uint8_t dataValid = 1; // 假设数据是有效的
+    for (int i = 0; i < 8; i++) {
+        if (recvBuf[i] != expectedData[i]) {
+            dataValid = 0; // 数据不匹配，标记为无效
+            break;
+        }
+    }
 
-//    if(can_Rx.IDE == CAN_ID_STD)
-//    {
-//        len += sprintf((char *)&uartBuf[len], "标准ID：%#X; ", can_Rx.StdId);
-//    }
-//    else if(can_Rx.IDE == CAN_ID_EXT)
-//    {
-//        len += sprintf((char *)&uartBuf[len], "扩展ID：%#X; ", can_Rx.ExtId);
-//    }
-//    
-//    if(can_Rx.RTR == CAN_RTR_DATA)
-//    {
-//        len += sprintf((char *)&uartBuf[len], "数据帧; 数据为：");
-//        
-//        for(int i = 0; i < can_Rx.DLC; i ++)
-//        {
-//            len += sprintf((char *)&uartBuf[len], "%X ", recvBuf[i]);
-//        }
-//        
-//        len += sprintf((char *)&uartBuf[len], "\r\n");
-//        HAL_UART_Transmit(&huart1, uartBuf, len, 100);        
-//    }
-//    else if(can_Rx.RTR == CAN_RTR_REMOTE)
-//    {
-//        len += sprintf((char *)&uartBuf[len], "远程帧\r\n");
-//        HAL_UART_Transmit(&huart1, uartBuf, len, 100);        
-//    }    
+    if (dataValid) {
+        // 数据有效，更新预期数据
+        for (int i = 0; i < 8; i++) {
+            expectedData[i]++;
+            if (expectedData[i] != 0) {
+                break; // 如果当前字节没有溢出，停止更新
+            }
+        }
+    } else {
+        // 数据无效，发送错误信息
+        len += sprintf((char *)&usbBuf[len], "Data continuity error! Expected: ");
+        for (int i = 0; i < 8; i++) {
+            len += sprintf((char *)&usbBuf[len], "%02X ", expectedData[i]);
+        }
+        len += sprintf((char *)&usbBuf[len], "Received: ");
+        for (int i = 0; i < 8; i++) {
+            len += sprintf((char *)&usbBuf[len], "%02X ", recvBuf[i]);
+        }
+        len += sprintf((char *)&usbBuf[len], "\r\n");
+        CDC_Transmit_FS(usbBuf, len);
+    }
+	
+#define DEBUG_PRINTF 1
+#if DEBUG_PRINTF
+    if (can_Rx.IDE == CAN_ID_STD)
+    {
+        len += sprintf((char *)&usbBuf[len], "Standard ID:%#X; ", can_Rx.StdId);
+    }
+    else if (can_Rx.IDE == CAN_ID_EXT)
+    {
+        len += sprintf((char *)&usbBuf[len], "Extended ID:%#X; ", can_Rx.ExtId);
+    }
+   
+    if (can_Rx.RTR == CAN_RTR_DATA)
+    {
+        len += sprintf((char *)&usbBuf[len], "Data Frame; Data:");
+       
+        for (int i = 0; i < can_Rx.DLC; i++)
+        {
+            len += sprintf((char *)&usbBuf[len], "%X ", recvBuf[i]);
+        }
+       
+        len += sprintf((char *)&usbBuf[len], "\r\n");
+        CDC_Transmit_FS(usbBuf, len);  // Use usbBuf to send data
+    }
+    else if (can_Rx.RTR == CAN_RTR_REMOTE)
+    {
+        len += sprintf((char *)&usbBuf[len], "Remote Frame\r\n");
+        CDC_Transmit_FS(usbBuf, len);  // Use usbBuf to send data
+    }
+#endif 
+#undef DEBUG_PRINTF
 }
-
-
 
 void cansend(uint32_t id, uint8_t* data, uint8_t dlc) {
   CAN_TxHeaderTypeDef txHeader;
@@ -194,31 +232,31 @@ int main(void)
   MX_CAN1_Init();
   /* USER CODE BEGIN 2 */
 
+  // CAN 输出通道选择设置
   HAL_GPIO_WritePin(HCAN_RS_EN1_GPIO_Port, HCAN_RS_EN1_Pin, GPIO_PIN_RESET);
 
   HAL_GPIO_WritePin(CHAN_EN_GPIO_Port, CHAN_EN_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(CHAN_A0_GPIO_Port, CHAN_A0_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(CHAN_A1_GPIO_Port, CHAN_A1_Pin, GPIO_PIN_RESET);
 
-  // OBD 6 -> 7
+  // OBD 6 -> 7 通道选择
   HAL_GPIO_WritePin(PORT0_EN_GPIO_Port, PORT0_EN_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(PORT0_A0_GPIO_Port, PORT0_A0_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(PORT0_A1_GPIO_Port, PORT0_A1_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(PORT0_A2_GPIO_Port, PORT0_A2_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(PORT0_A3_GPIO_Port, PORT0_A3_Pin, GPIO_PIN_RESET);
 
-  // OBD 14 -> 15
+  // OBD 14 -> 15 通道选择
   HAL_GPIO_WritePin(PORT1_EN_GPIO_Port, PORT1_EN_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(PORT1_A0_GPIO_Port, PORT1_A0_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(PORT1_A1_GPIO_Port, PORT1_A1_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(PORT1_A2_GPIO_Port, PORT1_A2_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(PORT1_A3_GPIO_Port, PORT1_A3_Pin, GPIO_PIN_SET);
-	
+
 
 	CANFilter_Config();
 	HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 
-	
 	if(HAL_CAN_Start(&hcan1) != HAL_OK){
     while (1); 
   }
@@ -226,6 +264,10 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
+	HAL_Delay(500);   
+  handle_cantest_welcome();
+  
   while (1)
   {
 
@@ -234,11 +276,10 @@ int main(void)
     HAL_GPIO_WritePin(LED_CTR_GPIO_Port, LED_CTR_Pin, GPIO_PIN_RESET);
     HAL_Delay(500);
 		
-
-    send_hex_data();
-
-		CDC_Transmit_FS("fuck\r\n", 6);   //
-		
+#if 0    
+		send_hex_data();
+		CDC_Transmit_FS("fuck\r\n", 6);   
+#endif	
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
