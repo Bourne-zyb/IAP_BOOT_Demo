@@ -3,3 +3,7 @@
 *.crf
 *.d
 
+*.hex
+*.htm
+*.dep
+cantest/MDK-ARM/JLinkLog.txt
