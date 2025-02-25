@@ -56,20 +56,20 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-/* CAN���������ú��� */
+/* CAN过滤配置函数 */
 static void CANFilter_Config(void)
 {
     CAN_FilterTypeDef sFilterConfig;
 
-    sFilterConfig.FilterBank = 0;                          // CAN��������ţ����?0-27
-    sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;      // CAN������ģʽ������ģʽ���б�ģʽ
-    sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;     // CAN�������߶ȣ�16λ��32λ
-    sFilterConfig.FilterIdHigh = 0x0000;              // 32λ�£��洢Ҫ���˵�ID�ĸ�16λ
-    sFilterConfig.FilterIdLow = 0x0000;                    // 32λ�£��洢Ҫ���˵�ID�ĵ�16λ
-    sFilterConfig.FilterMaskIdHigh = 0x0000;               // ����ģʽ�£��洢��������?
-    sFilterConfig.FilterMaskIdLow = 0x0000;                // ����ģʽ�£��洢��������?
-    sFilterConfig.FilterFIFOAssignment = 0;                // ����ͨ��������ƥ��󣬴洢���ĸ�FIFO
-    sFilterConfig.FilterActivation = ENABLE;               // ���������???
+    sFilterConfig.FilterBank = 0;                          // CAN过滤器编号，范围0-27
+    sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;      // CAN过滤模式，掩码模式或列表模式
+    sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;     // CAN过滤器尺度，16位或32位
+    sFilterConfig.FilterIdHigh = 0x0000;                   // 32位模式，存储要配置的ID的高16位
+    sFilterConfig.FilterIdLow = 0x0000;                    // 32位模式，存储要配置的ID的低16位
+    sFilterConfig.FilterMaskIdHigh = 0x0000;               // 掩码模式下，存储过滤器掩码高16位
+    sFilterConfig.FilterMaskIdLow = 0x0000;                // 掩码模式下，存储过滤器掩码低16位
+    sFilterConfig.FilterFIFOAssignment = 0;                // 过滤器通道，匹配后存储的FIFO编号
+    sFilterConfig.FilterActivation = ENABLE;               // 启用过滤器
     sFilterConfig.SlaveStartFilterBank = 0;
 
     if (HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig) != HAL_OK) {
@@ -106,16 +106,16 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 
 //    if(can_Rx.IDE == CAN_ID_STD)
 //    {
-//        len += sprintf((char *)&uartBuf[len], "��׼ID��%#X; ", can_Rx.StdId);
+//        len += sprintf((char *)&uartBuf[len], "标准ID：%#X; ", can_Rx.StdId);
 //    }
 //    else if(can_Rx.IDE == CAN_ID_EXT)
 //    {
-//        len += sprintf((char *)&uartBuf[len], "��չID��%#X; ", can_Rx.ExtId);
+//        len += sprintf((char *)&uartBuf[len], "扩展ID：%#X; ", can_Rx.ExtId);
 //    }
 //    
 //    if(can_Rx.RTR == CAN_RTR_DATA)
 //    {
-//        len += sprintf((char *)&uartBuf[len], "����֡; ����Ϊ��");
+//        len += sprintf((char *)&uartBuf[len], "数据帧; 数据为：");
 //        
 //        for(int i = 0; i < can_Rx.DLC; i ++)
 //        {
@@ -127,7 +127,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 //    }
 //    else if(can_Rx.RTR == CAN_RTR_REMOTE)
 //    {
-//        len += sprintf((char *)&uartBuf[len], "ң��֡\r\n");
+//        len += sprintf((char *)&uartBuf[len], "远程帧\r\n");
 //        HAL_UART_Transmit(&huart1, uartBuf, len, 100);        
 //    }    
 }
@@ -138,17 +138,17 @@ void cansend(uint32_t id, uint8_t* data, uint8_t dlc) {
   CAN_TxHeaderTypeDef txHeader;
   uint32_t txMailbox;
 
-  // 设置CAN报文�???
-  txHeader.StdId = id;          // 设置标准标识�???
-  txHeader.ExtId = 0x00;           // 设置扩展标识�???
-  txHeader.RTR = CAN_RTR_DATA;  // 数据�???
-  txHeader.IDE = CAN_ID_STD;    // 标准标识�???
+  // 设置CAN报文参数
+  txHeader.StdId = id;          // 设置标准标识符
+  txHeader.ExtId = 0x00;           // 设置扩展标识符
+  txHeader.RTR = CAN_RTR_DATA;  // 数据帧
+  txHeader.IDE = CAN_ID_STD;    // 标准标识符
   txHeader.DLC = dlc;           // 数据长度
 
-  // 发�?�CAN数据
+  // 发送CAN数据
   if (HAL_CAN_AddTxMessage(&hcan1, &txHeader, data, &txMailbox) != HAL_OK) {
       while (1);
-      // 处理发�?�错�???
+      // 处理发送错误
   }
 }
 
@@ -157,7 +157,7 @@ void send_hex_data() {
   data[0] = 0x12;  // 数据的高字节
   data[1] = 0x34;  // 数据的低字节
 
-  cansend(0x125, data, 8);  // 发�?�数据，ID�???0x123，数据为�??? 0x 数据长度�???2
+  cansend(0x125, data, 8);  // 发送数据，ID为0x123，数据为0x 数据长度为2
 }
 /* USER CODE END 0 */
 
