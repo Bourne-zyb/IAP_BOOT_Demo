@@ -237,7 +237,7 @@ int main(void)
 
     send_hex_data();
 
-		CDC_Transmit_FS("fuck\r\n", 6);
+		CDC_Transmit_FS("fuck\r\n", 6);   //
 		
     /* USER CODE END WHILE */
 

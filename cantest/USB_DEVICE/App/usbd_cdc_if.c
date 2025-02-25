@@ -51,7 +51,7 @@
 /* USER CODE BEGIN PRIVATE_TYPES */
 USBD_CDC_LineCodingTypeDef USBD_CDC_LineCoding =
 {
-	9600,      // 默认波特率
+	115200,      // 默认波特率
 	0X00,        // 1位停止位
 	0X00,        // 无奇偶校
 	0X08,        // 无流控，8bit数据位
