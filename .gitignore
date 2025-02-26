@@ -7,3 +7,5 @@
 *.htm
 *.dep
 cantest/MDK-ARM/JLinkLog.txt
+*.Lonsdor
+*.map
