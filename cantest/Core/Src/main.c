@@ -80,13 +80,21 @@ static void CANFilter_Config(void)
     sFilterConfig.FilterBank = 0;                          // CAN过滤器编号，范围0-27
     sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;      // CAN过滤模式，掩码模式或列表模式
     sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;     // CAN过滤器尺度，16位或32位
+		//设置1：接收所有帧
     sFilterConfig.FilterIdHigh = 0x0000;                   // 32位模式，存储要配置的ID的高16位
     sFilterConfig.FilterIdLow = 0x0000;                    // 32位模式，存储要配置的ID的低16位
     sFilterConfig.FilterMaskIdHigh = 0x0000;               // 掩码模式下，存储过滤器掩码高16位
     sFilterConfig.FilterMaskIdLow = 0x0000;                // 掩码模式下，存储过滤器掩码低16位
-    sFilterConfig.FilterFIFOAssignment = 0;                // 过滤器通道，匹配后存储的FIFO编号
+
+// 设置2：只接收stdID为奇数的帧
+//    sFilterConfig.FilterIdHigh = 0x0020;		             //CAN_FxR1 的高16位
+//    sFilterConfig.FilterIdLow = 0x0000;			             //CAN_FxR1 的低16位
+//    sFilterConfig.FilterMaskIdHigh = 0x0020;	           //CAN_FxR2的高16位
+//    sFilterConfig.FilterMaskIdLow = 0x0000;		           //CAN_FxR2的低16位
+	
+    sFilterConfig.FilterFIFOAssignment = CAN_FILTER_FIFO0;                // 过滤器通道，匹配后存储的FIFO编号
     sFilterConfig.FilterActivation = ENABLE;               // 启用过滤器
-    sFilterConfig.SlaveStartFilterBank = 0;
+    sFilterConfig.SlaveStartFilterBank = 0;								 //从CAN控制器筛选器起始的Bank
 
     if (HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig) != HAL_OK) {
         //printf("CAN Filter Config Fail!\r\n");
@@ -172,6 +180,13 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 #undef DEBUG_PRINTF
 }
 
+/**
+  * @brief  发送CAN数据帧
+  * @param  id: CAN报文的标识符（标准标识符）
+  * @param  data: 指向要发送的数据的指针
+  * @param  dlc: 数据长度（0-8）
+  * @retval None
+  */
 void cansend(uint32_t id, uint8_t* data, uint8_t dlc) {
   CAN_TxHeaderTypeDef txHeader;
   uint32_t txMailbox;
