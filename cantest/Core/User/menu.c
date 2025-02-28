@@ -119,7 +119,7 @@ void SerialUpload(void)
 
   Serial_PutString("\n\n\rSelect Receive File\n\r");
 	
-	iapInterface.ReceiveFunction(&status, 1);
+	iapInterface.ReceiveFunction(&status, 1, RX_TIMEOUT);
 
   if ( status == CRC16)
   {
@@ -181,7 +181,7 @@ void Main_Menu(void)
     //__HAL_UART_FLUSH_DRREGISTER(&UartHandle);
 	
     /* Receive key */
-    iapInterface.ReceiveFunction( &key, 1);
+    iapInterface.ReceiveFunction( &key, 1, RX_TIMEOUT);
 
     switch (key)
     {
@@ -242,17 +242,44 @@ void Main_Menu(void)
 }
 
 
-/************************ (C) IAP  ************************************************/
+/************************ (C) IAP Init ******************************************/
 // 用户传输接口
 int TransmitAdapter(void* buffer, uint16_t len) 
 {
     return CDC_Transmit_FS((uint8_t*)buffer, len);
 }
 
+IAP_Receive_Struct iap_recive;
 // 用户接收接口
-uint8_t ReceiveAdapter(uint8_t *data, uint16_t length) {
-    //TODO 实现USB接收逻辑
-    return 0;  // 返回接收状态
+uint8_t ReceiveAdapter(uint8_t *data, uint16_t length, uint32_t timeout) 
+{
+    // 等待直到接收到的数据长度大于等于要求的长度，或者超时
+    while (iap_recive.length < length) 
+    {
+        iapInterface.DelayTimeMs(1);  // 每次等待1ms
+        timeout--;
+        if (timeout == 0)  // 超时
+        {
+            return 1;  // 超时返回1
+        }
+    }
+    if(NULL == iap_recive.data){
+      return 1;  // 超时返回1
+    }
+
+    // 将接收到的数据拷贝到传入的缓冲区
+    memcpy(data, iap_recive.data, length);
+    iap_recive.length = 0;  
+    iap_recive.data = NULL;
+
+    return 0;  // 成功返回0
+}
+
+
+
+void DelayTimeAdapter(uint16_t delaytime)
+{
+   HAL_Delay(delaytime);
 }
 
 // 初始化IAP接口
@@ -266,10 +293,9 @@ IAP_Interface iapInterface;
   */
 void IAP_Init(void)
 {
-
 	iapInterface.TransmitFunction = TransmitAdapter;
   iapInterface.ReceiveFunction = ReceiveAdapter;
-
+  iapInterface.DelayTimeMs = DelayTimeAdapter;
 }
 
 /**

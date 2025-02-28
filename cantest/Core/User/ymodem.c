@@ -72,7 +72,7 @@ static HAL_StatusTypeDef ReceivePacket(uint8_t *p_data, uint32_t *p_length, uint
   uint8_t char1;
 
   *p_length = 0;
-  status = iapInterface.ReceiveFunction (&char1, 1);
+  status = iapInterface.ReceiveFunction (&char1, 1, timeout);
 
   if (status == HAL_OK)
   {
@@ -87,7 +87,7 @@ static HAL_StatusTypeDef ReceivePacket(uint8_t *p_data, uint32_t *p_length, uint
       case EOT:
         break;
       case CA:
-        if ((iapInterface.ReceiveFunction (&char1, 1) == HAL_OK) && (char1 == CA))
+        if ((iapInterface.ReceiveFunction (&char1, 1, timeout) == HAL_OK) && (char1 == CA))
         {
           packet_size = 2;
         }
@@ -108,7 +108,7 @@ static HAL_StatusTypeDef ReceivePacket(uint8_t *p_data, uint32_t *p_length, uint
 
     if (packet_size >= PACKET_SIZE )
     {
-      status = iapInterface.ReceiveFunction(&p_data[PACKET_NUMBER_INDEX], packet_size + PACKET_OVERHEAD_SIZE);
+      status = iapInterface.ReceiveFunction(&p_data[PACKET_NUMBER_INDEX], packet_size + PACKET_OVERHEAD_SIZE, timeout);
 
       /* Simple packet sanity check */
       if (status == HAL_OK )
@@ -369,7 +369,7 @@ COM_StatusTypeDef Ymodem_Receive ( uint32_t *p_size )
                       result = COM_LIMIT;
                     }
                     /* erase user application area */
-                    FLASH_If_Erase(APPLICATION_ADDRESS);
+                    FLASH_If_Erase_App_Space();
                     *p_size = filesize;
 
                     Serial_PutByte(ACK);
@@ -475,7 +475,7 @@ COM_StatusTypeDef Ymodem_Transmit (uint8_t *p_buf, const uint8_t *p_file_name, u
 #endif /* CRC16_F */
 
     /* Wait for Ack and 'C' */
-    if (iapInterface.ReceiveFunction(&a_rx_ctrl[0], 1) == HAL_OK)
+    if (iapInterface.ReceiveFunction(&a_rx_ctrl[0], 1, NAK_TIMEOUT) == HAL_OK)
     {
       if (a_rx_ctrl[0] == ACK)
       {
@@ -483,7 +483,7 @@ COM_StatusTypeDef Ymodem_Transmit (uint8_t *p_buf, const uint8_t *p_file_name, u
       }
       else if (a_rx_ctrl[0] == CA)
       {
-        if ((iapInterface.ReceiveFunction(&a_rx_ctrl[0], 1) == HAL_OK) && (a_rx_ctrl[0] == CA))
+        if ((iapInterface.ReceiveFunction(&a_rx_ctrl[0], 1, NAK_TIMEOUT) == HAL_OK) && (a_rx_ctrl[0] == CA))
         {
           HAL_Delay( 2 );
           //__HAL_UART_FLUSH_DRREGISTER(&UartHandle);
@@ -539,7 +539,7 @@ COM_StatusTypeDef Ymodem_Transmit (uint8_t *p_buf, const uint8_t *p_file_name, u
 #endif /* CRC16_F */
       
       /* Wait for Ack */
-      if (( iapInterface.ReceiveFunction(&a_rx_ctrl[0], 1) == HAL_OK) && (a_rx_ctrl[0] == ACK))
+      if (( iapInterface.ReceiveFunction(&a_rx_ctrl[0], 1, NAK_TIMEOUT) == HAL_OK) && (a_rx_ctrl[0] == ACK))
       {
         ack_recpt = 1;
         if (size > pkt_size)
@@ -583,7 +583,7 @@ COM_StatusTypeDef Ymodem_Transmit (uint8_t *p_buf, const uint8_t *p_file_name, u
     Serial_PutByte(EOT);
 
     /* Wait for Ack */
-    if (iapInterface.ReceiveFunction(&a_rx_ctrl[0], 1) == HAL_OK)
+    if (iapInterface.ReceiveFunction(&a_rx_ctrl[0], 1, NAK_TIMEOUT) == HAL_OK)
     {
       if (a_rx_ctrl[0] == ACK)
       {
@@ -591,7 +591,7 @@ COM_StatusTypeDef Ymodem_Transmit (uint8_t *p_buf, const uint8_t *p_file_name, u
       }
       else if (a_rx_ctrl[0] == CA)
       {
-        if ((iapInterface.ReceiveFunction(&a_rx_ctrl[0], 1) == HAL_OK) && (a_rx_ctrl[0] == CA))
+        if ((iapInterface.ReceiveFunction(&a_rx_ctrl[0], 1, NAK_TIMEOUT) == HAL_OK) && (a_rx_ctrl[0] == CA))
         {
           HAL_Delay( 2 );
           //__HAL_UART_FLUSH_DRREGISTER(&UartHandle);
@@ -636,7 +636,7 @@ COM_StatusTypeDef Ymodem_Transmit (uint8_t *p_buf, const uint8_t *p_file_name, u
 #endif /* CRC16_F */
 
     /* Wait for Ack and 'C' */
-    if (iapInterface.ReceiveFunction(&a_rx_ctrl[0], 1) == HAL_OK)
+    if (iapInterface.ReceiveFunction(&a_rx_ctrl[0], 1, NAK_TIMEOUT) == HAL_OK)
     {
       if (a_rx_ctrl[0] == CA)
       {

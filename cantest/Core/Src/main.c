@@ -117,6 +117,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
     
     
     HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &can_Rx, recvBuf);
+    
 		canrecv_cnt++;
 		
 		// 数据连续性校验
@@ -287,7 +288,7 @@ int main(void)
   
 	
 	/* Test if Key push-button on STM3210C-EVAL RevC Board is pressed */
-  if (1 == GPIO_PIN_RESET)
+  if (1 )
   { 
   	/* Initialise Flash */
   	FLASH_If_Init();

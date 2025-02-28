@@ -55,19 +55,27 @@ typedef  void (*pFunction)(void);
 /* Exported functions ------------------------------------------------------- */
 void Main_Menu(void);
 
-// ¶¨Òå´«Êä·½Ê½µÄÃ¶¾ÙÀàĞÍ
+// å®šä¹‰ä¼ è¾“æ–¹å¼çš„æšä¸¾ç±»å‹
 typedef enum {
-    TRANSMIT_METHOD_USB,  // Ê¹ÓÃ USB ´«Êä
-		// TODO£º add transway
+    TRANSMIT_METHOD_USB,  // ä½¿ç”¨ USB ä¼ è¾“
+		// TODO: æ·»åŠ å…¶ä»–ä¼ è¾“æ–¹å¼
 } TransmitMethod;
 
+typedef struct {
+  uint32_t length;        // æ•°æ®é•¿åº¦
+  uint8_t* data;          // æ•°æ®æŒ‡é’ˆ
+} IAP_Receive_Struct;
+
+extern IAP_Receive_Struct iap_recive;
 
 typedef struct {
-    uint8_t (*TransmitFunction)(uint8_t *data, uint16_t length);  // ·¢ËÍº¯ÊıÖ¸Õë
-    uint8_t (*ReceiveFunction)(uint8_t *data, uint16_t length);   // ½ÓÊÕº¯ÊıÖ¸Õë
+    uint8_t (*TransmitFunction)(uint8_t *data, uint16_t length);  // å‘é€å‡½æ•°æŒ‡é’ˆ
+    uint8_t (*ReceiveFunction)(uint8_t *data, uint16_t length, uint32_t timeout);   // æ¥æ”¶å‡½æ•°æŒ‡é’ˆ
+    void (*DelayTimeMs)(uint32_t delaytime);                          // å»¶æ—¶å‡½æ•°æŒ‡é’ˆ
 } IAP_Interface;
 
-// ¶¨ÒåIAP½Ó¿Ú
+// å®šä¹‰IAPæ¥å£
+
 extern IAP_Interface iapInterface;
 void IAP_Init(void);
 #endif  /* __MENU_H */
