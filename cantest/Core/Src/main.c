@@ -25,6 +25,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "usbd_cdc_if.h"
+#include "menu.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,7 +46,8 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+extern pFunction JumpToApplication;
+extern uint32_t JumpAddress;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -283,6 +285,35 @@ int main(void)
 	HAL_Delay(500);   
   handle_cantest_welcome();
   
+	
+	/* Test if Key push-button on STM3210C-EVAL RevC Board is pressed */
+  if (1 == GPIO_PIN_RESET)
+  { 
+  	/* Initialise Flash */
+  	FLASH_If_Init();
+  	/* Execute the IAP driver in order to reprogram the Flash */
+    IAP_Init();
+    /* Display main menu */
+    Main_Menu ();
+  }
+  /* Keep the user application running */
+  else
+  {
+    /* Test if user code is programmed starting from address "APPLICATION_ADDRESS" */
+    if (((*(__IO uint32_t*)APPLICATION_ADDRESS) & 0x2FFE0000 ) == 0x20000000)
+    {
+      /* Jump to user application */
+      JumpAddress = *(__IO uint32_t*) (APPLICATION_ADDRESS + 4);
+      JumpToApplication = (pFunction) JumpAddress;
+      /* Initialize user application's Stack Pointer */
+      __set_MSP(*(__IO uint32_t*) APPLICATION_ADDRESS);
+      JumpToApplication();
+    }
+  }
+
+  while (1)
+  {}
+	
   while (1)
   {
 

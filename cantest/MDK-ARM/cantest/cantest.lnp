@@ -32,6 +32,10 @@
 "cantest\usbd_ctlreq.o"
 "cantest\usbd_ioreq.o"
 "cantest\usbd_cdc.o"
+"cantest\ymodem.o"
+"cantest\menu.o"
+"cantest\flash_if.o"
+"cantest\common.o"
 --library_type=microlib --strict --scatter "cantest\cantest.sct"
 --summary_stderr --info summarysizes --map --xref --callgraph --symbols
 --info sizes --info totals --info unused --info veneers
