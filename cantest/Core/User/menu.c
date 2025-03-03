@@ -145,12 +145,6 @@ void SerialUpload(void)
 void Main_Menu(void)
 {
   uint8_t key = 0, key2;
-  
-  // while(key == "")
-  // {
-
-  // }
-  // iapInterface.ReceiveFunction( &key, 1, RX_TIMEOUT);
 
   Serial_PutString("\r\n======================================================================");
   Serial_PutString("\r\n=              (C) COPYRIGHT 2015 STMicroelectronics                 =");
@@ -256,8 +250,8 @@ int TransmitAdapter(void* buffer, uint16_t len, uint32_t timeout)
 {
     while (USBD_BUSY == CDC_Transmit_FS((uint8_t*)buffer, len)) 
     {
-        iapInterface.DelayTimeMs(10);  // 每次等待10ms
-        timeout -= 10;
+        iapInterface.DelayTimeMs(1);  // 每次等待1ms
+        timeout -= 1;
         if (timeout == 0)  // 超时
         {
             return 1;  // 超时返回1
@@ -267,29 +261,46 @@ int TransmitAdapter(void* buffer, uint16_t len, uint32_t timeout)
 
 IAP_Receive_Struct iap_recive;
 // 用户接收接口
-uint8_t ReceiveAdapter(uint8_t *data, uint16_t length, uint32_t timeout) 
-{
-    // 等待直到接收到的数据长度大于等于要求的长度，或者超时
-    while (iap_recive.length < length) 
-    {
-        iapInterface.DelayTimeMs(10);  // 每次等待10ms
-        timeout -= 10;
-        if (timeout == 0)  // 超时
-        {
-            return 1;  // 超时返回1
-        }
-    }
-    if(NULL == iap_recive.data){
-      return 1;  // 超时返回1
-    }
+uint8_t ReceiveAdapter(uint8_t *data, uint16_t needlength, uint32_t timeout) 
+{ 
+    uint16_t recive_cnt = 0, remainingLength;
 
-	
-    // 将接收到的数据拷贝到传入的缓冲区
-    memcpy(data, iap_recive.data, length);
-    iap_recive.length = 0;  
-    iap_recive.data = NULL;
-
-    return 0;  // 成功返回0
+    switch (iap_recive.iap_pkgtatus) {
+      case PKG_NOT_DONE:
+          // 当有数据后，等到10ms内没有新数据更新才认为是一包结束
+          while ((0 == iap_recive.length) || (recive_cnt < iap_recive.length)) 
+          {
+              recive_cnt = iap_recive.length; 
+              iapInterface.DelayTimeMs(10);   
+              timeout -= 10;
+              if (timeout <= 10)  
+              {
+                  return 1;  // 超时返回1
+              }
+          }
+          iap_recive.iap_pkgtatus = PKG_COMPLETE;
+      case PKG_COMPLETE:
+          iap_recive.handle_cnt = 0;
+          iap_recive.iap_pkgtatus = PKG_HANDLE_ING;
+      case PKG_HANDLE_ING:
+          remainingLength = iap_recive.length - iap_recive.handle_cnt;  
+          if(needlength <= remainingLength){
+              memcpy(data, &iap_recive.recivebuf[iap_recive.handle_cnt], needlength);
+              iap_recive.handle_cnt += needlength;
+          }else{
+              memcpy(data, &iap_recive.recivebuf[iap_recive.handle_cnt], remainingLength);
+              iap_recive.handle_cnt += remainingLength;
+          }
+          // 如果全部处理完，就重新开始接受
+          if(iap_recive.length == iap_recive.handle_cnt){
+              memset(&iap_recive, 0, sizeof(IAP_Receive_Struct)); // 将结构体的所有字节设置为零
+          }
+          break;
+      default:
+          return 2;  // err status
+          break;
+    }
+		return 0;  // 成功返回0
 }
 
 

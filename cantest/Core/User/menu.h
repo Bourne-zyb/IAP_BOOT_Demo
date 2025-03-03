@@ -61,10 +61,20 @@ typedef enum {
 		// TODO: 添加其他传输方式
 } TransmitMethod;
 
+typedef enum {
+    PKG_NOT_DONE = 0,     // 未接收到完整的一包数据
+    PKG_COMPLETE = 1,      // 接收到完整的一包数据
+    PKG_HANDLE_ING = 2      // 正在处理数据包中（意味着还有没解析处理完的数据）
+} eReceiveStatus;
+
 typedef struct {
-  uint32_t length;        // 数据长度
-  uint8_t* data;          // 数据指针
-} IAP_Receive_Struct;
+  char  recivebuf[1200];
+  uint16_t length;        // 数据总长度       
+  uint16_t handle_cnt;    // 处理解析了多少个数据了（为了适配stm32官方ymodem协议中
+                          //                     通过开头第一个字节来判断后续的逻辑）
+  uint8_t pack64_cnt;    // 分成了多少个 64 字节的包   
+  eReceiveStatus iap_pkgtatus;    // iap当前的状态
+} IAP_Receive_Struct;   
 
 extern IAP_Receive_Struct iap_recive;
 

@@ -10,3 +10,4 @@ cantest/MDK-ARM/JLinkLog.txt
 *.Lonsdor
 *.map
 *.TMP
+*.map

@@ -49,7 +49,7 @@
 /* Private function prototypes -----------------------------------------------*/
 
 /* Private functions ---------------------------------------------------------*/
-
+#define DEBUG_FLASH 1
 /**
   * @brief  Unlocks Flash for write access
   * @param  None
@@ -57,6 +57,7 @@
   */
 void FLASH_If_Init(void)
 {
+#if DEBUG_FLASH
   /* Unlock the Program memory */
   HAL_FLASH_Unlock();
 
@@ -65,6 +66,7 @@ void FLASH_If_Init(void)
 													FLASH_FLAG_PGAERR | FLASH_FLAG_PGPERR|FLASH_FLAG_PGSERR);
   /* Unlock the Program memory */
   HAL_FLASH_Lock();
+#endif
 }
 
 /**
@@ -74,6 +76,7 @@ void FLASH_If_Init(void)
   */
 void FLASH_If_Erase_App_Space(void)
 {
+#if DEBUG_FLASH
   /* Unlock the Flash to enable the flash control register access *************/ 
   HAL_FLASH_Unlock();
 
@@ -87,6 +90,7 @@ void FLASH_If_Erase_App_Space(void)
   /* Lock the Flash to disable the flash control register access (recommended
      to protect the FLASH memory against possible unwanted operation) *********/
   HAL_FLASH_Lock();
+#endif
 }
 
 
@@ -106,7 +110,7 @@ void FLASH_If_Erase_App_Space(void)
 uint32_t FLASH_If_Write(uint32_t destination, uint32_t *p_source, uint32_t length)
 {
   uint32_t i = 0;
-
+#if DEBUG_FLASH
   /* Unlock the Flash to enable the flash control register access *************/
   HAL_FLASH_Unlock();
 
@@ -135,7 +139,7 @@ uint32_t FLASH_If_Write(uint32_t destination, uint32_t *p_source, uint32_t lengt
   /* Lock the Flash to disable the flash control register access (recommended
      to protect the FLASH memory against possible unwanted operation) *********/
   HAL_FLASH_Lock();
-
+#endif
   return (FLASHIF_OK);
 }
 

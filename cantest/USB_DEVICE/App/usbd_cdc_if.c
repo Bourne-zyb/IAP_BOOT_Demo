@@ -354,13 +354,17 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
   USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
   USBD_CDC_ReceivePacket(&hUsbDeviceFS);
 
-  // 将接收到的数据作为字符串处理
-  //  Buf[*Len] = '\0'; // 确保字符串以 NULL 结尾
-  //  execute_command((const char *)Buf); // 执行命令
-	
-  iap_recive.length = *Len;
-  iap_recive.data = Buf;
-
+  if(64 == *Len)    //意味着数据大于 64 bytes，被分包了
+  {
+    memcpy(&iap_recive.recivebuf[iap_recive.pack64_cnt * 64], Buf, 64);
+    iap_recive.pack64_cnt++;
+    iap_recive.iap_pkgtatus = PKG_NOT_DONE;
+  }else{
+    memcpy(&iap_recive.recivebuf[iap_recive.pack64_cnt * 64], Buf, *Len);
+    iap_recive.iap_pkgtatus = PKG_COMPLETE;
+  }
+  iap_recive.length += *Len;
+   
   return (USBD_OK);
   /* USER CODE END 6 */
 }
