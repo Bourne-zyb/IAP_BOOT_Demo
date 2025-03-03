@@ -284,7 +284,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
 
 	HAL_Delay(500);   
-  handle_cantest_welcome();
+  //handle_cantest_welcome();
   
 	
 	/* Test if Key push-button on STM3210C-EVAL RevC Board is pressed */

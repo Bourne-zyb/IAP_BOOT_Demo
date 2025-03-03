@@ -166,7 +166,7 @@ void Serial_PutString(uint8_t *p_string)
   {
     length++;
   }
-	iapInterface.TransmitFunction(p_string, length);
+	iapInterface.TransmitFunction(p_string, length, TX_TIMEOUT);
 }
 
 /**
@@ -176,7 +176,7 @@ void Serial_PutString(uint8_t *p_string)
   */
 HAL_StatusTypeDef Serial_PutByte( uint8_t param )
 {
-  return iapInterface.TransmitFunction(&param, 1);
+  return iapInterface.TransmitFunction(&param, 1, TX_TIMEOUT);
 }
 /**
   * @}

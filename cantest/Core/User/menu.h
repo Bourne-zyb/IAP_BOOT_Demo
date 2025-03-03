@@ -69,7 +69,7 @@ typedef struct {
 extern IAP_Receive_Struct iap_recive;
 
 typedef struct {
-    uint8_t (*TransmitFunction)(uint8_t *data, uint16_t length);  // 发送函数指针
+    uint8_t (*TransmitFunction)(uint8_t *data, uint16_t length, uint32_t timeout);  // 发送函数指针
     uint8_t (*ReceiveFunction)(uint8_t *data, uint16_t length, uint32_t timeout);   // 接收函数指针
     void (*DelayTimeMs)(uint32_t delaytime);                          // 延时函数指针
 } IAP_Interface;

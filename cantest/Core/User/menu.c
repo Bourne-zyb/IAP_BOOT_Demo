@@ -144,7 +144,13 @@ void SerialUpload(void)
   */
 void Main_Menu(void)
 {
-  uint8_t key = 0;
+  uint8_t key = 0, key2;
+  
+  // while(key == "")
+  // {
+
+  // }
+  // iapInterface.ReceiveFunction( &key, 1, RX_TIMEOUT);
 
   Serial_PutString("\r\n======================================================================");
   Serial_PutString("\r\n=              (C) COPYRIGHT 2015 STMicroelectronics                 =");
@@ -167,14 +173,14 @@ void Main_Menu(void)
     Serial_PutString("  Execute the loaded application ----------------------- 3\r\n\n");
 
 
-    if(FlashProtection != FLASHIF_PROTECTION_NONE)
-    {
-      Serial_PutString("  Disable the write protection ------------------------- 4\r\n\n");
-    }
-    else
-    {
-      Serial_PutString("  Enable the write protection -------------------------- 4\r\n\n");
-    }
+//    if(FlashProtection != FLASHIF_PROTECTION_NONE)
+//    {
+//      Serial_PutString("  Disable the write protection ------------------------- 4\r\n\n");
+//    }
+//    else
+//    {
+//      Serial_PutString("  Enable the write protection -------------------------- 4\r\n\n");
+//    }
     Serial_PutString("==========================================================\r\n\n");
 
     /* Clean the input path */
@@ -182,6 +188,7 @@ void Main_Menu(void)
 	
     /* Receive key */
     iapInterface.ReceiveFunction( &key, 1, RX_TIMEOUT);
+		
 
     switch (key)
     {
@@ -244,9 +251,18 @@ void Main_Menu(void)
 
 /************************ (C) IAP Init ******************************************/
 // 用户传输接口
-int TransmitAdapter(void* buffer, uint16_t len) 
+#include "usbd_def.h"
+int TransmitAdapter(void* buffer, uint16_t len, uint32_t timeout) 
 {
-    return CDC_Transmit_FS((uint8_t*)buffer, len);
+    while (USBD_BUSY == CDC_Transmit_FS((uint8_t*)buffer, len)) 
+    {
+        iapInterface.DelayTimeMs(10);  // 每次等待10ms
+        timeout -= 10;
+        if (timeout == 0)  // 超时
+        {
+            return 1;  // 超时返回1
+        }
+    }
 }
 
 IAP_Receive_Struct iap_recive;
@@ -256,8 +272,8 @@ uint8_t ReceiveAdapter(uint8_t *data, uint16_t length, uint32_t timeout)
     // 等待直到接收到的数据长度大于等于要求的长度，或者超时
     while (iap_recive.length < length) 
     {
-        iapInterface.DelayTimeMs(1);  // 每次等待1ms
-        timeout--;
+        iapInterface.DelayTimeMs(10);  // 每次等待10ms
+        timeout -= 10;
         if (timeout == 0)  // 超时
         {
             return 1;  // 超时返回1
@@ -267,6 +283,7 @@ uint8_t ReceiveAdapter(uint8_t *data, uint16_t length, uint32_t timeout)
       return 1;  // 超时返回1
     }
 
+	
     // 将接收到的数据拷贝到传入的缓冲区
     memcpy(data, iap_recive.data, length);
     iap_recive.length = 0;  
@@ -279,7 +296,15 @@ uint8_t ReceiveAdapter(uint8_t *data, uint16_t length, uint32_t timeout)
 
 void DelayTimeAdapter(uint16_t delaytime)
 {
-   HAL_Delay(delaytime);
+   //HAL_Delay(delaytime);
+
+    for (uint32_t i = 0; i < delaytime; i++) {
+        for (volatile uint32_t j = 0; j < 12000; j++) {
+            // 空循环，消耗时间
+        }
+    }
+
+
 }
 
 // 初始化IAP接口

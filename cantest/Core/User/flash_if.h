@@ -200,15 +200,16 @@ enum {
 };
 
 /* Define the address from where user application will be loaded.
-   Note: this area is reserved for the IAP code                  */
-#define FLASH_PAGE_STEP         FLASH_PAGE_SIZE           /* Size of page : 2 Kbytes */
-#define APPLICATION_ADDRESS     (uint32_t)0x08004000      /* Start user code address: ADDR_FLASH_PAGE_8 */
+   Note: this area is reserved for the IAP code       
+*/
+#define APPLICATION_ADDRESS     			(uint32_t)0x08020000      /* Start user code address:  Sector 5 */
+/* Define the user application size */
+#define USER_FLASH_SIZE               ((uint32_t)0x0030000) 		/*  application size*/
 
 /* Notable Flash addresses */
-#define USER_FLASH_END_ADDRESS        0x08040000
+#define USER_FLASH_END_ADDRESS        0x08080000
 
-/* Define the user application size */
-#define USER_FLASH_SIZE               ((uint32_t)0x00003000) /* Small default template application */
+
 
 /* Define bitmap representing user flash area that could be write protected (check restricted to pages 8-39). */
 #define FLASH_PAGE_TO_BE_PROTECTED (OB_WRP_PAGES8TO9 | OB_WRP_PAGES10TO11 | OB_WRP_PAGES12TO13 | OB_WRP_PAGES14TO15 | \

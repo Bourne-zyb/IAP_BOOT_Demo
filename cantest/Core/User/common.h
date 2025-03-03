@@ -45,7 +45,7 @@
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
 /* Constants used by Serial Command Line Mode */
-#define TX_TIMEOUT          ((uint32_t)100)
+#define TX_TIMEOUT          ((uint32_t)10000)
 #define RX_TIMEOUT          HAL_MAX_DELAY
 
 /* Exported macro ------------------------------------------------------------*/
