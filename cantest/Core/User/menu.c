@@ -196,6 +196,8 @@ void Main_Menu(void)
       break;
     case '3' :
       Serial_PutString("Start program execution......\r\n\n");
+			HAL_DeInit();
+			__disable_irq();  /* 禁止全局中断*/
       /* execute the new program */
       JumpAddress = *(__IO uint32_t*) (APPLICATION_ADDRESS + 4);
       /* Jump to user application */
