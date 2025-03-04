@@ -82,6 +82,7 @@ void SerialDownload(void)
   result = Ymodem_Receive( &size );
   if (result == COM_OK)
   {
+		iapInterface.DelayTimeMs(100);
     Serial_PutString("\n\n\r Programming Completed Successfully!\n\r--------------------------------\r\n Name: ");
     Serial_PutString(aFileName);
     Int2Str(number, size);
@@ -149,7 +150,7 @@ void Main_Menu(void)
   Serial_PutString("\r\n======================================================================");
   Serial_PutString("\r\n=              (C) COPYRIGHT 2015 STMicroelectronics                 =");
   Serial_PutString("\r\n=                                                                    =");
-  Serial_PutString("\r\n=  STM32F1xx In-Application Programming Application  (Version 1.0.0) =");
+  Serial_PutString("\r\n=  STM32F2xx In-Application Programming Application  (Version 1.0.0) =");
   Serial_PutString("\r\n=                                                                    =");
   Serial_PutString("\r\n=                                   By MCD Application Team          =");
   Serial_PutString("\r\n======================================================================");
@@ -238,7 +239,7 @@ void Main_Menu(void)
       }
       break;
 	default:
-	Serial_PutString("Invalid Number ! ==> The number should be either 1, 2, 3 or 4\r");
+	Serial_PutString("Invalid Number ! ==> The number should be either 1, 2, 3\r");
 	break;
     }
   }
@@ -246,83 +247,120 @@ void Main_Menu(void)
 
 
 /************************ (C) IAP Init ******************************************/
-// 用户传输接口
+
 #include "usbd_def.h"
-int TransmitAdapter(void* buffer, uint16_t len, uint32_t timeout) 
+
+
+IAP_Interface iapInterface;
+IAP_Receive_Struct iap_recive;
+
+
+/**
+ * @brief USB虚拟串口阻塞式发送函数，用于通过CDC接口发送数据。
+ *        如果发送缓冲区繁忙，函数会等待直到数据成功发送或超时。
+ * 
+ * @param buffer 指向发送数据缓冲区的指针
+ * @param len 需要发送的数据长度
+ * @param timeout 发送超时时间（单位：毫秒）
+ * @retval HAL_StatusTypeDef 返回状态，HAL_OK表示成功，HAL_TIMEOUT表示超时
+ */
+HAL_StatusTypeDef TransmitAdapter(void* buffer, uint16_t len, uint32_t timeout) 
 {
-    while (USBD_BUSY == CDC_Transmit_FS((uint8_t*)buffer, len)) 
+    while (USBD_OK != CDC_Transmit_FS((uint8_t*)buffer, len)) 
     {
-        iapInterface.DelayTimeMs(1);  // 每次等待1ms
-        timeout -= 1;
-        if (timeout == 0)  // 超时
+        iapInterface.DelayTimeMs(10);  // 每次等待10ms
+        timeout -= 10;
+        if (timeout <= 10)  // 超时
         {
-            return 1;  // 超时返回1
+            return HAL_TIMEOUT;  
         }
     }
+    return HAL_OK;
 }
 
-IAP_Receive_Struct iap_recive;
-// 用户接收接口
-uint8_t ReceiveAdapter(uint8_t *data, uint16_t needlength, uint32_t timeout) 
+/**
+ * @brief 通过USB虚拟串口进行阻塞式数据接收。
+ * 
+ * 该函数用于从USB虚拟串口接收数据。如果未收到所需的字节数，函数会一直等待直到超时。
+ * 如果一次接收的数据过多，函数会只返回当前所需的数据，并在下次调用时继续传输剩余的数据。
+ * 在这种二次获取数据的情况下，如果剩余数据不足，函数会只传输当前剩余的字节数，并返回错误状态。
+ * 
+ * @param data 指向接收数据缓冲区的指针，用于存储接收到的数据。
+ * @param needlength 需要接收的数据长度（单位：字节）。
+ * @param timeout 接收超时时间（单位：毫秒）。
+ * 
+ * @retval HAL_StatusTypeDef 返回状态：
+ *         - HAL_OK: 接收成功。
+ *         - HAL_TIMEOUT: 接收超时。
+ *         - HAL_ERROR: 接收过程中发生错误。
+ * （这里的错误返回一定要按照 HAL_StatusTypeDef 里面带来写，因为 Ymodem 是stm32官方的，
+ *  官方的协议栈就是按照这样的返回值做处理的，不然会出错！！）
+ */
+HAL_StatusTypeDef ReceiveAdapter(uint8_t *data, uint16_t needlength, uint32_t timeout) 
 { 
     uint16_t recive_cnt = 0, remainingLength;
+    HAL_StatusTypeDef status = HAL_OK;  
 
-    switch (iap_recive.iap_pkgtatus) {
-      case PKG_NOT_DONE:
-          // 当有数据后，等到10ms内没有新数据更新才认为是一包结束
-          while ((0 == iap_recive.length) || (recive_cnt < iap_recive.length)) 
-          {
-              recive_cnt = iap_recive.length; 
-              iapInterface.DelayTimeMs(10);   
-              timeout -= 10;
-              if (timeout <= 10)  
-              {
-                  return 1;  // 超时返回1
-              }
-          }
-          iap_recive.iap_pkgtatus = PKG_COMPLETE;
-      case PKG_COMPLETE:
-          iap_recive.handle_cnt = 0;
-          iap_recive.iap_pkgtatus = PKG_HANDLE_ING;
-      case PKG_HANDLE_ING:
-          remainingLength = iap_recive.length - iap_recive.handle_cnt;  
-          if(needlength <= remainingLength){
-              memcpy(data, &iap_recive.recivebuf[iap_recive.handle_cnt], needlength);
-              iap_recive.handle_cnt += needlength;
-          }else{
-              memcpy(data, &iap_recive.recivebuf[iap_recive.handle_cnt], remainingLength);
-              iap_recive.handle_cnt += remainingLength;
-          }
-          // 如果全部处理完，就重新开始接受
-          if(iap_recive.length == iap_recive.handle_cnt){
-              memset(&iap_recive, 0, sizeof(IAP_Receive_Struct)); // 将结构体的所有字节设置为零
-          }
-          break;
-      default:
-          return 2;  // err status
-          break;
+    switch (iap_recive.iap_pkgtatus) 
+    {
+        case PKG_NOT_DONE:
+            // 当有数据后，等到10ms内没有新数据更新才认为是一包结束
+            while ((0 == iap_recive.length) || (recive_cnt < iap_recive.length)) 
+            {
+                recive_cnt = iap_recive.length; 
+                iapInterface.DelayTimeMs(10);   
+                timeout -= 10;
+                if (timeout <= 10)  
+                {
+                    return  HAL_TIMEOUT;  
+                }
+            }
+            iap_recive.iap_pkgtatus = PKG_COMPLETE;
+        case PKG_COMPLETE:
+            iap_recive.handle_cnt = 0;
+            iap_recive.iap_pkgtatus = PKG_HANDLE_ING;
+        case PKG_HANDLE_ING:
+            remainingLength = iap_recive.length - iap_recive.handle_cnt;  
+            if (needlength <= remainingLength)
+            {
+                memcpy(data, &iap_recive.recivebuf[iap_recive.handle_cnt], needlength);
+                iap_recive.handle_cnt += needlength;
+            }
+            else
+            {
+                memcpy(data, &iap_recive.recivebuf[iap_recive.handle_cnt], remainingLength);
+                iap_recive.handle_cnt += remainingLength;
+                status = HAL_TIMEOUT;  
+            }
+            // 如果全部处理完，就重新开始接受
+            if (iap_recive.length == iap_recive.handle_cnt)
+            {
+                memset(&iap_recive, 0, sizeof(IAP_Receive_Struct)); // 将结构体的所有字节设置为零
+            }
+            break;
+
+        default:
+            status = HAL_ERROR;  // HAL_ERROR
+            break;
     }
-		return 0;  // 成功返回0
+    return status; 
 }
 
 
 
+/**
+  * @brief  用户自动补充 延时函数 单位 ms
+  * @param  delaytime 延时的毫秒数。
+  * @retval None
+  */
 void DelayTimeAdapter(uint16_t delaytime)
 {
-   //HAL_Delay(delaytime);
-
     for (uint32_t i = 0; i < delaytime; i++) {
         for (volatile uint32_t j = 0; j < 12000; j++) {
             // 空循环，消耗时间
         }
     }
-
-
 }
-
-// 初始化IAP接口
-
-IAP_Interface iapInterface;
 
 /**
   * @brief  Initialize the IAP: Configure communication

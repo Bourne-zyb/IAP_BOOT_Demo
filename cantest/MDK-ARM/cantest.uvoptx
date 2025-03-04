@@ -176,9 +176,25 @@
         <Bp>
           <Number>0</Number>
           <Type>0</Type>
-          <LineNumber>83</LineNumber>
+          <LineNumber>90</LineNumber>
           <EnabledFlag>1</EnabledFlag>
-          <Address>134231726</Address>
+          <Address>134228670</Address>
+          <ByteObject>0</ByteObject>
+          <HtxType>0</HtxType>
+          <ManyObjects>0</ManyObjects>
+          <SizeOfObject>0</SizeOfObject>
+          <BreakByAccess>0</BreakByAccess>
+          <BreakIfRCount>1</BreakIfRCount>
+          <Filename>../Core/Src/stm32f2xx_it.c</Filename>
+          <ExecCommand></ExecCommand>
+          <Expression>\\cantest\../Core/Src/stm32f2xx_it.c\90</Expression>
+        </Bp>
+        <Bp>
+          <Number>1</Number>
+          <Type>0</Type>
+          <LineNumber>198</LineNumber>
+          <EnabledFlag>1</EnabledFlag>
+          <Address>134229598</Address>
           <ByteObject>0</ByteObject>
           <HtxType>0</HtxType>
           <ManyObjects>0</ManyObjects>
@@ -187,39 +203,7 @@
           <BreakIfRCount>1</BreakIfRCount>
           <Filename>..\Core\User\menu.c</Filename>
           <ExecCommand></ExecCommand>
-          <Expression>\\cantest\../Core/User/menu.c\83</Expression>
-        </Bp>
-        <Bp>
-          <Number>1</Number>
-          <Type>0</Type>
-          <LineNumber>435</LineNumber>
-          <EnabledFlag>1</EnabledFlag>
-          <Address>134242076</Address>
-          <ByteObject>0</ByteObject>
-          <HtxType>0</HtxType>
-          <ManyObjects>0</ManyObjects>
-          <SizeOfObject>0</SizeOfObject>
-          <BreakByAccess>0</BreakByAccess>
-          <BreakIfRCount>1</BreakIfRCount>
-          <Filename>..\Core\User\ymodem.c</Filename>
-          <ExecCommand></ExecCommand>
-          <Expression>\\cantest\../Core/User/ymodem.c\435</Expression>
-        </Bp>
-        <Bp>
-          <Number>2</Number>
-          <Type>0</Type>
-          <LineNumber>94</LineNumber>
-          <EnabledFlag>1</EnabledFlag>
-          <Address>134219214</Address>
-          <ByteObject>0</ByteObject>
-          <HtxType>0</HtxType>
-          <ManyObjects>0</ManyObjects>
-          <SizeOfObject>0</SizeOfObject>
-          <BreakByAccess>0</BreakByAccess>
-          <BreakIfRCount>1</BreakIfRCount>
-          <Filename>..\Core\User\flash_if.c</Filename>
-          <ExecCommand></ExecCommand>
-          <Expression>\\cantest\../Core/User/flash_if.c\94</Expression>
+          <Expression>\\cantest\../Core/User/menu.c\198</Expression>
         </Bp>
       </Breakpoint>
       <WatchWindow1>
@@ -242,6 +226,11 @@
           <count>3</count>
           <WinNumber>1</WinNumber>
           <ItemText>0x8020000</ItemText>
+        </Ww>
+        <Ww>
+          <count>4</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>JumpAddress</ItemText>
         </Ww>
       </WatchWindow1>
       <MemoryWindow1>

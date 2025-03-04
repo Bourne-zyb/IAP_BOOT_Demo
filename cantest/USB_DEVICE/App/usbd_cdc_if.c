@@ -354,14 +354,18 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
   USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
   USBD_CDC_ReceivePacket(&hUsbDeviceFS);
 
-  if(64 == *Len)    //意味着数据大于 64 bytes，被分包了
+  if (64 == *Len)
   {
-    memcpy(&iap_recive.recivebuf[iap_recive.pack64_cnt * 64], Buf, 64);
-    iap_recive.pack64_cnt++;
-    iap_recive.iap_pkgtatus = PKG_NOT_DONE;
-  }else{
-    memcpy(&iap_recive.recivebuf[iap_recive.pack64_cnt * 64], Buf, *Len);
-    iap_recive.iap_pkgtatus = PKG_COMPLETE;
+      // 意味接受的数据大于 64 bytes，被分包了，或者是 正好64字节
+      //（在之后的地方进行超时判断，一定时间内几 ms 内没新数据到来 就判断为结束）
+      memcpy(&iap_recive.recivebuf[iap_recive.pack64_cnt * 64], Buf, 64);
+      iap_recive.pack64_cnt++;
+      iap_recive.iap_pkgtatus = PKG_NOT_DONE;
+  }
+  else
+  {
+      memcpy(&iap_recive.recivebuf[iap_recive.pack64_cnt * 64], Buf, *Len);
+      iap_recive.iap_pkgtatus = PKG_COMPLETE;
   }
   iap_recive.length += *Len;
    
