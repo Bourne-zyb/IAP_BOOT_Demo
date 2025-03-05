@@ -22,7 +22,7 @@
 #include "usbd_cdc_if.h"
 
 /* USER CODE BEGIN INCLUDE */
-#include "menu.h"
+#include "iap.h"
 /* USER CODE END INCLUDE */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -135,81 +135,6 @@ static int8_t CDC_Control_FS(uint8_t cmd, uint8_t* pbuf, uint16_t length);
 static int8_t CDC_Receive_FS(uint8_t* pbuf, uint32_t *Len);
 
 /* USER CODE BEGIN PRIVATE_FUNCTIONS_DECLARATION */
-
-#include <string.h> // 用于字符串比较
-
-// 定义命令处理函数类型
-typedef void (*CommandHandler)(void);
-
-void handle_restart(void);
-void handle_show(void);
-// 命令表结构体
-typedef struct {
-    const char *command; // 命令字符串
-    CommandHandler handler; // 命令处理函数
-} CommandEntry;
-
-CommandEntry commandTable[] = {
-  {"restart", handle_restart},
-  {"show", handle_show},
-//  {"stop", handle_stop},
-  // 继续添加更多命令
-};
-
-// 示例命令处理函数
-extern uint32_t canrecv_cnt;
-extern uint8_t expectedData[8]; // 用于存储预期的数据
-void handle_restart(void) {
-    // 将 cnt 变量清零
-    canrecv_cnt = 0;
-		memset(expectedData, 0, sizeof(expectedData));
-		
-    uint8_t usbBuf[50]; // 用于存储要发送的字符串
-    uint16_t len = 0;
-
-    // 格式化字符串到 usbBuf
-    len += sprintf((char *)&usbBuf[len], "cnt has been reset to 0.\r\n");
-
-    // 使用 CDC_Transmit_FS 发送数据   
-    CDC_Transmit_FS(usbBuf, len);
-}
-
-void handle_show(void) {
-    uint8_t usbBuf[50]; // 用于存储要发送的字符串
-    uint16_t len = 0;
-
-    // 格式化字符串到 usbBuf
-    len += sprintf((char *)&usbBuf[len], "canrecv_cnt: %lu\r\n", canrecv_cnt);
-
-    // 使用 CDC_Transmit_FS 发送数据
-    CDC_Transmit_FS(usbBuf, len);
-}
-
-
-
-void handle_unknown(void) {
-    uint8_t usbBuf[50]; // 用于存储要发送的字符串
-    uint16_t len = 0;
-
-    // 格式化字符串到 usbBuf
-    len += sprintf((char *)&usbBuf[len], "Unknown command.\r\n");
-
-    // 使用 CDC_Transmit_FS 发送数据
-    CDC_Transmit_FS(usbBuf, len);
-}
-
-// 查找并执行命令
-void execute_command(const char *command) {
-    for (int i = 0; i < sizeof(commandTable) / sizeof(CommandEntry); i++) {
-        if (strcmp(command, commandTable[i].command) == 0) {
-            commandTable[i].handler();
-            return;
-        }
-    }
-    handle_unknown(); // 如果找不到命令，执行未知命令处理
-}
-
-
 
 /* USER CODE END PRIVATE_FUNCTIONS_DECLARATION */
 

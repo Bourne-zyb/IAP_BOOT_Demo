@@ -314,7 +314,7 @@
               <OCR_RVCT4>
                 <Type>1</Type>
                 <StartAddress>0x8000000</StartAddress>
-                <Size>0x20000</Size>
+                <Size>0xc000</Size>
               </OCR_RVCT4>
               <OCR_RVCT5>
                 <Type>1</Type>
@@ -1438,6 +1438,16 @@
               <FileName>common.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Core\User\common.c</FilePath>
+            </File>
+            <File>
+              <FileName>iap.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\User\iap.c</FilePath>
+            </File>
+            <File>
+              <FileName>can_user.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\User\can_user.c</FilePath>
             </File>
           </Files>
         </Group>

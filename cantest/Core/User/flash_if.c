@@ -41,7 +41,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "flash_if.h"
-
+#include "iap.h"
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/
@@ -80,7 +80,7 @@ void FLASH_If_Erase_App_Space(void)
   /* Unlock the Flash to enable the flash control register access *************/ 
   HAL_FLASH_Unlock();
 
-  for(char i = FLASH_SECTOR_5; i <= FLASH_SECTOR_8; i++)
+  for(char i = APP_START_SECTOR; i <= APP_END_SECTOR; i++)
   {
     /* Device voltage range supposed to be [2.7V to 3.6V], the operation will
        be done by word */ 

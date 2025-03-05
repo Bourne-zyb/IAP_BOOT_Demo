@@ -55,39 +55,6 @@ typedef  void (*pFunction)(void);
 /* Exported functions ------------------------------------------------------- */
 void Main_Menu(void);
 
-// 定义传输方式的枚举类型
-typedef enum {
-    TRANSMIT_METHOD_USB,  // 使用 USB 传输
-		// TODO: 添加其他传输方式
-} TransmitMethod;
-
-typedef enum {
-    PKG_NOT_DONE = 0,     // 未接收到完整的一包数据
-    PKG_COMPLETE = 1,      // 接收到完整的一包数据
-    PKG_HANDLE_ING = 2      // 正在处理数据包中（意味着还有没解析处理完的数据）
-} eReceiveStatus;
-
-typedef struct {
-  char  recivebuf[1200];
-  uint16_t length;        // 数据总长度       
-  uint16_t handle_cnt;    // 处理解析了多少个数据了（为了适配stm32官方ymodem协议中
-                          //                     通过开头第一个字节来判断后续的逻辑）
-  uint8_t pack64_cnt;    // 分成了多少个 64 字节的包   
-  eReceiveStatus iap_pkgtatus;    // iap当前的状态
-} IAP_Receive_Struct;   
-
-extern IAP_Receive_Struct iap_recive;
-
-typedef struct {
-    uint8_t (*TransmitFunction)(uint8_t *data, uint16_t length, uint32_t timeout);  // 发送函数指针
-    uint8_t (*ReceiveFunction)(uint8_t *data, uint16_t length, uint32_t timeout);   // 接收函数指针
-    void (*DelayTimeMs)(uint32_t delaytime);                          // 延时函数指针
-} IAP_Interface;
-
-// 定义IAP接口
-
-extern IAP_Interface iapInterface;
-void IAP_Init(void);
 #endif  /* __MENU_H */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
