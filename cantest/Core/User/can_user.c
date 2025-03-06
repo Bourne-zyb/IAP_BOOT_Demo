@@ -1,19 +1,37 @@
+/******************************************************************************
+ * @file    can_user.c
+ * @brief   CAN module implementation.
+ * @author  Jason
+ * @version V1.0.0
+ * @date    2025-03
+ * @copyright (c) 2025, All rights reserved.
+ ******************************************************************************/
+
+/* Includes ------------------------------------------------------------------*/ 
 #include "can_user.h"
 #include "usbd_cdc_if.h"
 #include "can.h"
 #include <string.h> 
 
+/* Private typedef -----------------------------------------------------------*/ 
 
-static uint8_t expectedData[8] = {0}; // 用于存储预期的数据
+/* Private define ------------------------------------------------------------*/ 
+
+/* Private macro -------------------------------------------------------------*/ 
+
+/* Private variables ---------------------------------------------------------*/ 
+static uint8_t expectedData[8] = {0};
 static uint32_t canrecv_cnt;
 static CommandEntry commandTable[] = {
   {"restart", handle_restart},
   {"show", handle_show},
-//  {"stop", handle_stop},
-  // 继续添加更多命令
+  // {"stop", handle_stop},
+  // Add more commands here
 };
 
+/* Private function prototypes -----------------------------------------------*/ 
 
+/* Private functions ---------------------------------------------------------*/ 
 void handle_restart(void) {
   // 将 cnt 变量清零
   canrecv_cnt = 0;
@@ -248,6 +266,4 @@ void can_board_init(void)
 }
 
 
-
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+/************************ (C) COPYRIGHT Jason *****END OF FILE****/

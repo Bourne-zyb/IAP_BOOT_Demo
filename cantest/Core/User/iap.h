@@ -1,12 +1,22 @@
+/******************************************************************************
+ * @file    iap.h
+ * @brief   In-Application Programming (IAP) module header file.
+ * @author  Jason
+ * @version V1.0.0
+ * @date    2025-3
+ * @copyright (c) 2025, All rights reserved.
+ ******************************************************************************/
+
 #ifndef __IAP_H
 #define __IAP_H
 
+/* Private Includes ------------------------------------------------------------------*/
 #include "usbd_cdc_if.h"
-#include "menu.h"
 
-/* 
-	Define the address from where user application will be loaded.
-  Note: this area is reserved for the IAP code   
+
+/* Flash Memory Layout -------------------------------------------------------
+    Define the address from where user application will be loaded.
+    Note: this area is reserved for the IAP code   
 +--------------+------------+----------------------------+-----------+----------------------------+
 | Flash Region | Name       | Block Base Addresses       | Size      | Comment                    |
 +--------------+------------+----------------------------+-----------+----------------------------+
@@ -22,55 +32,52 @@
 |              | Sector 6   | 0x0804 0000 - 0x0805 FFFF  | 128 Kbyte | Backup        256 KB       |
 |              | Sector 7   | 0x0806 0000 - 0x0807 FFFF  | 128 Kbyte |                            |
 +--------------+------------+----------------------------+-----------+----------------------------+
-*/
+------------------------------------------------------------------------------*/
 
-/* Start user code address:  Sector 4 */
-#define APPLICATION_ADDRESS     			((uint32_t)0x08010000)
+/* Exported constants ------------------------------------------------------------*/
+#define APPLICATION_ADDRESS                 ((uint32_t)0x08010000)  /* Start user code address: Sector 4 */
+#define APP_START_SECTOR                    FLASH_SECTOR_4         /* Use for IAP erase the app space */
+#define APP_END_SECTOR                      FLASH_SECTOR_5         /* Use for IAP erase the app space */
+#define USER_FLASH_SIZE                     ((uint32_t)0x00030000) /* Application size 192 KB */
+#define USER_FLASH_END_ADDRESS              ((uint32_t)0x0807FFFF) /* Notable Flash addresses */
 
-/* use for iap erase the app space*/
-#define APP_START_SECTOR							FLASH_SECTOR_4
-#define APP_END_SECTOR								FLASH_SECTOR_5
-
-/* application size 192 KB */
-#define USER_FLASH_SIZE               ((uint32_t)0x00030000) 			
-
-/* Notable Flash addresses */
-#define USER_FLASH_END_ADDRESS        ((uint32_t)0x0807FFFF)
-
-
-// 定义传输方式的枚举类型
+/* Exported types -----------------------------------------------------------*/
 typedef enum {
-  TRANSMIT_METHOD_USB,  // 使用 USB 传输
-  // TODO: 添加其他传输方式
+  TRANSMIT_METHOD_USB,  /* Use USB transmission */
+	TRANSMIT_METHOD_CAN,  /* Use CAN transmission */
+  // TODO: Add other transmission methods
 } TransmitMethod;
 
 typedef enum {
-  PKG_NOT_DONE = 0,     // 未接收到完整的一包数据
-  PKG_COMPLETE = 1,      // 接收到完整的一包数据
-  PKG_HANDLE_ING = 2      // 正在处理数据包中（意味着还有没解析处理完的数据）
+  PKG_NOT_DONE = 0,     /* Not received a complete package */
+  PKG_COMPLETE = 1,     /* Received a complete package */
+  PKG_HANDLE_ING = 2    /* Processing the package (means there is still unprocessed data) */
 } eReceiveStatus;
 
 typedef struct {
-char  recivebuf[1200];
-uint16_t length;        // 数据总长度       
-uint16_t handle_cnt;    // 处理解析了多少个数据了（为了适配stm32官方ymodem协议中
-                        //                     通过开头第一个字节来判断后续的逻辑）
-uint8_t pack64_cnt;    // 分成了多少个 64 字节的包   
-eReceiveStatus iap_pkgtatus;    // iap当前的状态
-} IAP_Receive_Struct;   
+  char recivebuf[1200];         /* Data buffer */
+  uint16_t length;              /* Total data length */
+  uint16_t handle_cnt;          /* Number of processed data (for STM32 official Ymodem protocol) */
+  uint8_t pack64_cnt;           /* Number of 64-byte packages */
+  eReceiveStatus iap_pkgtatus;  /* Current IAP status */
+} IAP_Receive_Struct;
 
 typedef struct {
-  HAL_StatusTypeDef (*TransmitFunction)(void *data, uint16_t length, uint32_t timeout);  // 发送函数指针
-  HAL_StatusTypeDef (*ReceiveFunction)(uint8_t *data, uint16_t length, uint32_t timeout);   // 接收函数指针
-  void (*DelayTimeMsFunction)(uint32_t delaytime);                          // 延时函数指针
-	void (*funtionJumpFunction)(void);
+  HAL_StatusTypeDef (*TransmitFunction)(void *data, uint16_t length, uint32_t timeout);  /* Transmit function pointer */
+  HAL_StatusTypeDef (*ReceiveFunction)(uint8_t *data, uint16_t length, uint32_t timeout); /* Receive function pointer */
+  void (*DelayTimeMsFunction)(uint32_t delaytime);                                      /* Delay function pointer */
+  void (*funtionJumpFunction)(void);                                                    /* Function jump pointer */
 } IAP_Interface;
 
-void IAP_Init(void);
 
+/* Exported macro -------------------------------------------------------------*/
+
+/* Exported variables ---------------------------------------------------------*/
 extern IAP_Receive_Struct iap_recive;
 extern IAP_Interface iapInterface;
 
+/* Exported function prototypes -----------------------------------------------*/
+void IAP_Init(void);
 
-#endif  
+#endif /* __IAP_H */
 

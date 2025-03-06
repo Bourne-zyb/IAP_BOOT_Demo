@@ -41,9 +41,6 @@
   ******************************************************************************
   */ 
 
-/** @addtogroup STM32F1xx_IAP
-  * @{
-  */
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -62,8 +59,8 @@ uint32_t FlashProtection = 0;
 uint8_t aFileName[FILE_NAME_LENGTH];
 
 /* Private function prototypes -----------------------------------------------*/
-void SerialDownload(void);
-void SerialUpload(void);
+static void SerialDownload(void);
+static void SerialUpload(void);
 
 /* Private functions ---------------------------------------------------------*/
 
@@ -72,7 +69,7 @@ void SerialUpload(void);
   * @param  None
   * @retval None
   */
-void SerialDownload(void)
+static void SerialDownload(void)
 {
   uint8_t number[11] = {0};
   uint32_t size = 0;
@@ -114,7 +111,7 @@ void SerialDownload(void)
   * @param  None
   * @retval None
   */
-void SerialUpload(void)
+ static void SerialUpload(void)
 {
   uint8_t status = 0;
 

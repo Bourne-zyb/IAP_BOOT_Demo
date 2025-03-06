@@ -1,15 +1,31 @@
-/************************ (C) IAP Init ******************************************/
+/******************************************************************************
+ * @file    iap.c
+ * @brief   In-Application Programming (IAP) module implementation.
+ * @author  Jason
+ * @version V1.0.0
+ * @date    2025-3
+ * @copyright (c) 2025, All rights reserved.
+ ******************************************************************************/
 
+/* Includes ------------------------------------------------------------------*/
 #include "iap.h"
 
+/* Private typedef -----------------------------------------------------------*/
+typedef void (*pFunction)(void);
 
+/* Private define ------------------------------------------------------------*/
+
+/* Private macro -------------------------------------------------------------*/
+
+/* Private variables ---------------------------------------------------------*/
 IAP_Interface iapInterface;
 IAP_Receive_Struct iap_recive;
-
-
-typedef  void (*pFunction)(void);
-static pFunction JumpToApplication;
 static uint32_t JumpAddress;
+static pFunction JumpToApplication;
+
+/* Private function prototypes -----------------------------------------------*/
+
+/* Private functions ---------------------------------------------------------*/
 
 static void funtionJump()
 {
@@ -26,7 +42,6 @@ static void funtionJump()
         JumpToApplication();
     }
 }
-
 
 
 /**
@@ -52,11 +67,10 @@ static HAL_StatusTypeDef TransmitAdapter(void* buffer, uint16_t len, uint32_t ti
     return HAL_OK;
 }
 
+
 /**
  * @brief 通过USB虚拟串口进行阻塞式数据接收。
- * 
- * 该函数用于从USB虚拟串口接收数据。如果未收到所需的字节数，函数会一直等待直到超时。
- * 如果一次接收的数据过多，函数会只返回当前所需的数据，并在下次调用时继续传输剩余的数据。
+ * @note  如果一次接收的数据过多，函数会只返回当前所需的数据，并在下次调用时继续传输剩余的数据。
  * 在这种二次获取数据的情况下，如果剩余数据不足，函数会只传输当前剩余的字节数，并返回错误状态。
  * 
  * @param data 指向接收数据缓冲区的指针，用于存储接收到的数据。
@@ -121,7 +135,6 @@ static HAL_StatusTypeDef ReceiveAdapter(uint8_t *data, uint16_t needlength, uint
 }
 
 
-
 /**
   * @brief  用户自动补充 延时函数 单位 ms
   * @param  delaytime 延时的毫秒数。
@@ -136,6 +149,7 @@ static void DelayTimeAdapter(uint32_t delaytime)
     }
 }
 
+
 /**
   * @brief  Initialize the IAP: Configure communication
   * @param  None
@@ -148,3 +162,6 @@ void IAP_Init(void)
     iapInterface.DelayTimeMsFunction = DelayTimeAdapter;
     iapInterface.funtionJumpFunction = funtionJump;
 }
+
+
+/************************ (C) COPYRIGHT Jason *****END OF FILE****/

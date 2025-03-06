@@ -44,12 +44,13 @@
 #include "iap.h"
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
+#define DEBUG_FLASH 1
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
 /* Private function prototypes -----------------------------------------------*/
 
 /* Private functions ---------------------------------------------------------*/
-#define DEBUG_FLASH 1
+
 /**
   * @brief  Unlocks Flash for write access
   * @param  None
