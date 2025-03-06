@@ -1,5 +1,5 @@
 /******************************************************************************
- * @file    iap.h
+ * @file    iap_user.h
  * @brief   In-Application Programming (IAP) module header file.
  * @author  Jason
  * @version V1.0.0
@@ -7,8 +7,8 @@
  * @copyright (c) 2025, All rights reserved.
  ******************************************************************************/
 
-#ifndef __IAP_H
-#define __IAP_H
+#ifndef __IAP_USER_H
+#define __IAP_USER_H
 
 /* Private Includes ------------------------------------------------------------------*/
 #include "usbd_cdc_if.h"
@@ -79,5 +79,5 @@ extern IAP_Interface iapInterface;
 /* Exported function prototypes -----------------------------------------------*/
 void IAP_Init(void);
 
-#endif /* __IAP_H */
+#endif /* __IAP_USER_H */
 

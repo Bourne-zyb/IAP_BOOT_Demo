@@ -1,5 +1,5 @@
 /******************************************************************************
- * @file    iap.c
+ * @file    iap_user.c
  * @brief   In-Application Programming (IAP) module implementation.
  * @author  Jason
  * @version V1.0.0
@@ -8,7 +8,7 @@
  ******************************************************************************/
 
 /* Includes ------------------------------------------------------------------*/
-#include "iap.h"
+#include "iap_user.h"
 
 /* Private typedef -----------------------------------------------------------*/
 typedef void (*pFunction)(void);
