@@ -24,7 +24,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "iap.h"
+#include "iap_user.h"
 #include "can_user.h"
 /* USER CODE END Includes */
 

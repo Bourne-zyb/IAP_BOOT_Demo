@@ -48,7 +48,7 @@
 #include "flash_if.h"
 #include "menu.h"
 #include "ymodem.h"
-#include "iap.h"
+#include "iap_user.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/

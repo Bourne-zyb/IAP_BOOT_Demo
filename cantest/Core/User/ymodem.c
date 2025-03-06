@@ -34,7 +34,7 @@
 #include "string.h"
 #include "main.h"
 #include "menu.h"
-#include "iap.h"
+#include "iap_user.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/

@@ -36,8 +36,8 @@
 "cantest\menu.o"
 "cantest\flash_if.o"
 "cantest\common.o"
-"cantest\iap.o"
 "cantest\can_user.o"
+"cantest\iap_user.o"
 --library_type=microlib --strict --scatter "cantest\cantest.sct"
 --summary_stderr --info summarysizes --map --xref --callgraph --symbols
 --info sizes --info totals --info unused --info veneers
