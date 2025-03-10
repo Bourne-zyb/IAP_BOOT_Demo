@@ -206,8 +206,8 @@ enum {
                                     OB_WRP_PAGES24TO25 | OB_WRP_PAGES26TO27 | OB_WRP_PAGES28TO29 | OB_WRP_PAGES30TO31 | \
                                     OB_WRP_PAGES32TO33 | OB_WRP_PAGES34TO35 | OB_WRP_PAGES36TO37 | OB_WRP_PAGES38TO39  )  
 
-
 /* Exported macro ------------------------------------------------------------*/
+#define FlASH_WAIT_TIMEMS (1000)
 /* ABSoulute value */
 #define ABS_RETURN(x,y)               ((x) < (y)) ? ((y)-(x)) : ((x)-(y))
 
@@ -219,7 +219,7 @@ enum {
 #define FLASH_PROTECTED_SECTORS       (~(uint32_t)((1 << FLASH_SECTOR_NUMBER) - 1))
 /* Exported functions ------------------------------------------------------- */
 void FLASH_If_Init(void);
-void FLASH_If_Erase_App_Space(void);
+HAL_StatusTypeDef FLASH_If_Erase_App_Space(void);
 uint32_t FLASH_If_GetWriteProtectionStatus(void);
 uint32_t FLASH_If_Write(uint32_t destination, uint32_t *p_source, uint32_t length);
 uint32_t FLASH_If_WriteProtectionConfig(uint32_t modifier);

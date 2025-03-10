@@ -370,7 +370,10 @@ COM_StatusTypeDef Ymodem_Receive ( uint32_t *p_size )
                       result = COM_LIMIT;
                     }
                     /* erase user application area */
-                    FLASH_If_Erase_App_Space();
+                    if(HAL_OK != FLASH_If_Erase_App_Space())
+										{
+												return COM_ERROR;
+										}
                     *p_size = filesize;
 
                     Serial_PutByte(ACK);

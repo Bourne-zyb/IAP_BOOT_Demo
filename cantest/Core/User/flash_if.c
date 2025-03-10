@@ -71,26 +71,36 @@ void FLASH_If_Init(void)
 }
 
 /**
-  * @brief  This function erases the APP space for IAP upgrade
-  * @param  None
-  * @retval None
-  */
-void FLASH_If_Erase_App_Space(void)
+ * @brief  Erases the application space in the FLASH memory.
+ * @return HAL_StatusTypeDef
+ *         - HAL_OK: if the erase operation is successful.
+ *         - HAL_TIMEOUT: if any FLASH operation times out.
+ */
+HAL_StatusTypeDef FLASH_If_Erase_App_Space(void)
 {
 #if DEBUG_FLASH
   /* Unlock the Flash to enable the flash control register access *************/ 
   HAL_FLASH_Unlock();
 
+	if(HAL_OK != FLASH_WaitForLastOperation(FlASH_WAIT_TIMEMS))
+	{
+		return HAL_TIMEOUT;
+	}
   for(char i = APP_START_SECTOR; i <= APP_END_SECTOR; i++)
   {
     /* Device voltage range supposed to be [2.7V to 3.6V], the operation will
        be done by word */ 
-    FLASH_Erase_Sector(i, FLASH_VOLTAGE_RANGE_3);
-  }
 
+		FLASH_Erase_Sector(i, FLASH_VOLTAGE_RANGE_3);
+		if(HAL_OK != FLASH_WaitForLastOperation(FlASH_WAIT_TIMEMS))
+		{
+			return HAL_TIMEOUT;
+		}
+  }
   /* Lock the Flash to disable the flash control register access (recommended
      to protect the FLASH memory against possible unwanted operation) *********/
   HAL_FLASH_Lock();
+	return HAL_OK;
 #endif
 }
 

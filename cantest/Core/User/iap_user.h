@@ -20,7 +20,7 @@
 +--------------+------------+----------------------------+-----------+----------------------------+
 | Flash Region | Name       | Block Base Addresses       | Size      | Comment                    |
 +--------------+------------+----------------------------+-----------+----------------------------+
-| Main Memory  | Sector 0   | 0x0800 0000 - 0x0800 3FFF  | 16 Kbyte  | Bootloader    58 KB        |
+| Main Memory  | Sector 0   | 0x0800 0000 - 0x0800 3FFF  | 16 Kbyte  | Bootloader    48 KB        |
 |              | Sector 1   | 0x0800 4000 - 0x0800 7FFF  | 16 Kbyte  |                            |
 |              | Sector 2   | 0x0800 8000 - 0x0800 BFFF  | 16 Kbyte  |                            |
 |              +------------+----------------------------+-----------+----------------------------+
@@ -35,13 +35,39 @@
 ------------------------------------------------------------------------------*/
 
 /* Exported constants ------------------------------------------------------------*/
+#define HEADER (0x55AA)
+#define ENDER  (0xAA55)
+#define IAP_STATUS_ADDRESS                  ((uint32_t)0x0800C000)  /* Start user code address: Sector 3 */
+#define IAP_STATUS_START_SECTOR             FLASH_SECTOR_3          /* Use for IAP status space */
+#define IAP_STATUS_END_SECTOR               FLASH_SECTOR_3          /* Use for IAP status space */
+#define IAP_STATUS_SIZE                     ((uint32_t)0x00004000)  /* 16 KB */
+
+
 #define APPLICATION_ADDRESS                 ((uint32_t)0x08010000)  /* Start user code address: Sector 4 */
-#define APP_START_SECTOR                    FLASH_SECTOR_4         /* Use for IAP erase the app space */
-#define APP_END_SECTOR                      FLASH_SECTOR_5         /* Use for IAP erase the app space */
-#define USER_FLASH_SIZE                     ((uint32_t)0x00030000) /* Application size 192 KB */
-#define USER_FLASH_END_ADDRESS              ((uint32_t)0x0807FFFF) /* Notable Flash addresses */
+#define APP_START_SECTOR                    FLASH_SECTOR_4          /* Use for IAP erase the app space */
+#define APP_END_SECTOR                      FLASH_SECTOR_5          /* Use for IAP erase the app space */
+#define USER_FLASH_SIZE                     ((uint32_t)0x00030000)  /* Application size 192 KB */
+
+#define USER_FLASH_END_ADDRESS              ((uint32_t)0x0807FFFF)  /* Notable Flash addresses */
 
 /* Exported types -----------------------------------------------------------*/
+typedef enum
+{
+    IAP_NO_APP,
+    IAP_DOWNING_BIN,
+    IAP_APP_DONE,
+}eIAP_STATUS;
+
+#pragma pack(push, 4)   // flash 按照 FLASH_TYPEPROGRAM_WORD 写入的，因此按照4字节对齐
+typedef struct  
+{   
+    uint16_t header;
+    eIAP_STATUS iap_status;
+    uint16_t version;
+    uint16_t ender;
+}iap_status_t;
+#pragma pack(pop)
+
 typedef enum {
   TRANSMIT_METHOD_USB,  /* Use USB transmission */
 	TRANSMIT_METHOD_CAN,  /* Use CAN transmission */

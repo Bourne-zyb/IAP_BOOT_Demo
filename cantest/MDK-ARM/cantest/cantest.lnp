@@ -38,6 +38,7 @@
 "cantest\common.o"
 "cantest\can_user.o"
 "cantest\iap_user.o"
+"cantest\flash_e_leveling.o"
 --library_type=microlib --strict --scatter "cantest\cantest.sct"
 --summary_stderr --info summarysizes --map --xref --callgraph --symbols
 --info sizes --info totals --info unused --info veneers

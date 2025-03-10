@@ -351,7 +351,7 @@
           </ArmAdsMisc>
           <Cads>
             <interw>1</interw>
-            <Optim>1</Optim>
+            <Optim>0</Optim>
             <oTime>0</oTime>
             <SplitLS>0</SplitLS>
             <OneElfS>1</OneElfS>
@@ -1440,14 +1440,19 @@
               <FilePath>..\Core\User\common.c</FilePath>
             </File>
             <File>
-              <FileName>iap.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Core\User\iap.c</FilePath>
-            </File>
-            <File>
               <FileName>can_user.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Core\User\can_user.c</FilePath>
+            </File>
+            <File>
+              <FileName>iap_user.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\User\iap_user.c</FilePath>
+            </File>
+            <File>
+              <FileName>flash_e_leveling.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\User\flash_e_leveling.c</FilePath>
             </File>
           </Files>
         </Group>

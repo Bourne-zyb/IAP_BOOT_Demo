@@ -135,6 +135,12 @@ static void SerialDownload(void)
   }
 }
 
+int fputc(int ch, FILE *f)
+{
+	while(CDC_Transmit_FS((uint8_t *)&ch, 1) == USBD_BUSY);
+	return ch;
+}
+
 /**
   * @brief  Display the Main Menu on HyperTerminal
   * @param  None
@@ -145,11 +151,11 @@ void Main_Menu(void)
   uint8_t key = 0, key2;
 
   Serial_PutString("\r\n======================================================================");
-  Serial_PutString("\r\n=              (C) COPYRIGHT 2015 STMicroelectronics                 =");
+  Serial_PutString("\r\n=              (C) COPYRIGHT 2025 Jason Bourne                       =");
   Serial_PutString("\r\n=                                                                    =");
   Serial_PutString("\r\n=  STM32F2xx In-Application Programming Application  (Version 1.0.0) =");
   Serial_PutString("\r\n=                                                                    =");
-  Serial_PutString("\r\n=                                   By MCD Application Team          =");
+  Serial_PutString("\r\n=                                                     By Jason       =");
   Serial_PutString("\r\n======================================================================");
   Serial_PutString("\r\n\r\n");
 
@@ -158,12 +164,13 @@ void Main_Menu(void)
 
   while (1)
   {
-
-    Serial_PutString("\r\n=================== Main Menu ============================\r\n\n");
+    Serial_PutString("\r\n==========================================================\r\n\n");
+    Serial_PutString(" * Please press '1' to upgrade new app within 5 seconds,   \r\n\n");
+    Serial_PutString(" * or it will run the old app.                           \r\n\n");
+    Serial_PutString("=================== Main Menu ============================\r\n\n");
     Serial_PutString("  Download image to the internal Flash ----------------- 1\r\n\n");
-    Serial_PutString("  Upload image from the internal Flash ----------------- 2\r\n\n");
-    Serial_PutString("  Execute the loaded application ----------------------- 3\r\n\n");
-
+  //  Serial_PutString("  Upload image from the internal Flash ----------------- 2\r\n\n");
+    Serial_PutString("  Execute the loaded application now---------------------3\r\n\n");
 
 //    if(FlashProtection != FLASHIF_PROTECTION_NONE)
 //    {
@@ -179,54 +186,53 @@ void Main_Menu(void)
     //__HAL_UART_FLUSH_DRREGISTER(&UartHandle);
 	
     /* Receive key */
-    iapInterface.ReceiveFunction( &key, 1, RX_TIMEOUT);
-		
-
+    key = '3';        
+    iapInterface.ReceiveFunction( &key, 1, BL_TIMEOUT);
     switch (key)
     {
     case '1' :
       /* Download user application in the Flash */
       SerialDownload();
       break;
-    case '2' :
-      /* Upload user application from the Flash */
-      SerialUpload();
-      break;
+    // case '2' :
+    //   /* Upload user application from the Flash */
+    //   SerialUpload();
+    //   break;
     case '3' :
       Serial_PutString("Start program execution......\r\n\n");
 			iapInterface.funtionJumpFunction();
-      break;
-    case '4' :
-      if (FlashProtection != FLASHIF_PROTECTION_NONE)
-      {
-        /* Disable the write protection */
-        if (FLASH_If_WriteProtectionConfig(FLASHIF_WRP_DISABLE) == FLASHIF_OK)
-        {
-          Serial_PutString("Write Protection disabled...\r\n");
-          Serial_PutString("System will now restart...\r\n");
-          /* Launch the option byte loading */
-          HAL_FLASH_OB_Launch();
-        }
-        else
-        {
-          Serial_PutString("Error: Flash write un-protection failed...\r\n");
-        }
-      }
-      else
-      {
-        if (FLASH_If_WriteProtectionConfig(FLASHIF_WRP_ENABLE) == FLASHIF_OK)
-        {
-          Serial_PutString("Write Protection enabled...\r\n");
-          Serial_PutString("System will now restart...\r\n");
-          /* Launch the option byte loading */
-          HAL_FLASH_OB_Launch();
-        }
-        else
-        {
-          Serial_PutString("Error: Flash write protection failed...\r\n");
-        }
-      }
-      break;
+       break;
+    // case '4' :
+    //   if (FlashProtection != FLASHIF_PROTECTION_NONE)
+    //   {
+    //     /* Disable the write protection */
+    //     if (FLASH_If_WriteProtectionConfig(FLASHIF_WRP_DISABLE) == FLASHIF_OK)
+    //     {
+    //       Serial_PutString("Write Protection disabled...\r\n");
+    //       Serial_PutString("System will now restart...\r\n");
+    //       /* Launch the option byte loading */
+    //       HAL_FLASH_OB_Launch();
+    //     }
+    //     else
+    //     {
+    //       Serial_PutString("Error: Flash write un-protection failed...\r\n");
+    //     }
+    //   }
+    //   else
+    //   {
+    //     if (FLASH_If_WriteProtectionConfig(FLASHIF_WRP_ENABLE) == FLASHIF_OK)
+    //     {
+    //       Serial_PutString("Write Protection enabled...\r\n");
+    //       Serial_PutString("System will now restart...\r\n");
+    //       /* Launch the option byte loading */
+    //       HAL_FLASH_OB_Launch();
+    //     }
+    //     else
+    //     {
+    //       Serial_PutString("Error: Flash write protection failed...\r\n");
+    //     }
+    //   }
+    //   break;
 	default:
 	Serial_PutString("Invalid Number ! ==> The number should be either 1, 2, 3\r");
 	break;
