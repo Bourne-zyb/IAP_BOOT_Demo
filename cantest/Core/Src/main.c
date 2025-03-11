@@ -25,7 +25,6 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "iap_user.h"
-#include "can_user.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -99,33 +98,21 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
+	/* Execute the IAP driver in order to reprogram the Flash */
+	IAP_Init();
+	/* Display main menu */
+	Main_Menu ();
 
-	/* Test if Key push-button on STM3210C-EVAL RevC Board is pressed */
-  if (1 )
-  { 
-  	/* Initialise Flash */
-  	FLASH_If_Init();
-  	/* Execute the IAP driver in order to reprogram the Flash */
-    IAP_Init();
-    /* Display main menu */
-    Main_Menu ();
-  }
-  /* Keep the user application running */
-  else
-  {
-    iapInterface.funtionJumpFunction();
-  }
-	
   while (1)
   {
-
+#if 0  
     HAL_GPIO_WritePin(LED_CTR_GPIO_Port, LED_CTR_Pin, GPIO_PIN_SET);
     HAL_Delay(500);   
     HAL_GPIO_WritePin(LED_CTR_GPIO_Port, LED_CTR_Pin, GPIO_PIN_RESET);
-    HAL_Delay(500);
-		
-#if 0    
+    HAL_Delay(500);		
+  
 		send_hex_data();
+		
 		CDC_Transmit_FS("fuck\r\n", 6);   
 #endif	
     /* USER CODE END WHILE */

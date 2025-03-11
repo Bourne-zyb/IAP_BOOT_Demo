@@ -157,6 +157,9 @@ static void DelayTimeAdapter(uint32_t delaytime)
   */
 void IAP_Init(void)
 {
+    /* Initialise Flash */
+    FLASH_If_Init();
+		
     iapInterface.TransmitFunction = TransmitAdapter;
     iapInterface.ReceiveFunction = ReceiveAdapter;
     iapInterface.DelayTimeMsFunction = DelayTimeAdapter;

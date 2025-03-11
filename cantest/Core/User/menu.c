@@ -234,7 +234,7 @@ void Main_Menu(void)
     //   }
     //   break;
 	default:
-	Serial_PutString("Invalid Number ! ==> The number should be either 1, 2, 3\r");
+	Serial_PutString("Invalid Number ! ==> The number should be either 1, 3\r");
 	break;
     }
   }

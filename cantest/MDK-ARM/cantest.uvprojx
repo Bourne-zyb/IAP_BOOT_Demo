@@ -1450,9 +1450,9 @@
               <FilePath>..\Core\User\iap_user.c</FilePath>
             </File>
             <File>
-              <FileName>flash_e_leveling.c</FileName>
+              <FileName>flash_e_level.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\Core\User\flash_e_leveling.c</FilePath>
+              <FilePath>..\Core\User\flash_e_level.c</FilePath>
             </File>
           </Files>
         </Group>
