@@ -25,6 +25,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "iap_user.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -101,7 +102,7 @@ int main(void)
 	/* Execute the IAP driver in order to reprogram the Flash */
 	IAP_Init();
 	/* Display main menu */
-	Main_Menu ();
+	Main_Menu();
 
   while (1)
   {

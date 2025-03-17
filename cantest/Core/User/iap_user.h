@@ -42,6 +42,8 @@
 #define IAP_STATUS_END_SECTOR               FLASH_SECTOR_3          /* Use for IAP status space */
 #define IAP_STATUS_SIZE                     ((uint32_t)0x00004000)  /* 16 KB */
 
+#define HEADER                              (0x55AA)
+#define ENDER                               (0xAA55)
 #define APPLICATION_ADDRESS                 ((uint32_t)0x08010000)  /* Start user code address: Sector 4 */
 #define APP_START_SECTOR                    FLASH_SECTOR_4          /* Use for IAP erase the app space */
 #define APP_END_SECTOR                      FLASH_SECTOR_5          /* Use for IAP erase the app space */
@@ -50,26 +52,45 @@
 #define USER_FLASH_END_ADDRESS              ((uint32_t)0x0807FFFF)  /* Notable Flash addresses */
 
 /* Exported types -----------------------------------------------------------*/
-typedef enum
-{
-    IAP_NO_APP,
-    IAP_DOWNING_BIN,
-    IAP_APP_DONE,
-}eIAP_STATUS;
-
-
-typedef struct  
-{   
-    eIAP_STATUS iap_status;
-    uint16_t version;
-}iap_status_t;
-
-
 typedef enum {
   TRANSMIT_METHOD_USB,  /* Use USB transmission */
 	TRANSMIT_METHOD_CAN,  /* Use CAN transmission */
   // TODO: Add other transmission methods
-} TransmitMethod;
+} eIAP_TransmitMethod_Def;
+
+typedef enum
+{
+  EL_FIND_SUCCESS, // Successfully found the latest data address
+  EL_FIND_ERR,     // Have data but not right.
+  EL_NOT_FOUND     // No valid data address found
+} eFIND_Status_Def;
+
+typedef enum
+{
+  IAP_NO_APP,
+  IAP_DOWNING_BIN,
+  IAP_APP_DONE,
+} eIAP_Status_Def;
+
+typedef struct  
+{   
+  eIAP_TransmitMethod_Def status;
+  eIAP_Status_Def 				transmitMethod;
+  uint16_t 								version;
+	uint32_t								size;
+}iap_msg_t;
+
+#define FLASH_PROGRAM_SIZE       			4           /* world 字 对齐 跟flash写入的保持一致*/
+#pragma pack(push, FLASH_PROGRAM_SIZE)         		/* flash 按照 FLASH_TYPEPROGRAM_WORD 写入的，因此按照4字节对齐 */ 
+typedef struct  
+{   
+    uint16_t header;
+    //TODO: add save data start.
+    iap_msg_t iap_msg;
+    //TODO: add save data end.
+    uint16_t ender;
+}save_data_t;
+#pragma pack(pop)   
 
 typedef enum {
   PKG_NOT_DONE = 0,     /* Not received a complete package */
@@ -92,7 +113,6 @@ typedef struct {
   void (*funtionJumpFunction)(void);                                                    /* Function jump pointer */
 } IAP_Interface;
 
-
 /* Exported macro -------------------------------------------------------------*/
 
 /* Exported variables ---------------------------------------------------------*/
@@ -101,6 +121,7 @@ extern IAP_Interface iapInterface;
 
 /* Exported function prototypes -----------------------------------------------*/
 void IAP_Init(void);
-
+eFIND_Status_Def read_iap_status(save_data_t *read_data);
+void write_iap_status(save_data_t *write_data);
 #endif /* __IAP_USER_H */
 

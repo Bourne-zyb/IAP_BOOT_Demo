@@ -9,7 +9,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "iap_user.h"
-
+#include "flash_e_level.h"
 /* Private typedef -----------------------------------------------------------*/
 typedef void (*pFunction)(void);
 
@@ -31,7 +31,7 @@ static void funtionJump()
 {
     /* Test if user code is programmed starting from address "APPLICATION_ADDRESS" */
     if (((*(__IO uint32_t*)APPLICATION_ADDRESS) & 0x2FFE0000 ) == 0x20000000)
-    {
+    {   
         HAL_DeInit();
         __disable_irq();  /* 禁止全局中断*/
         /* Jump to user application */
@@ -149,6 +149,18 @@ static void DelayTimeAdapter(uint32_t delaytime)
     }
 }
 
+eFIND_Status_Def read_iap_status(save_data_t *read_data)
+{
+    eFIND_Status_Def find_status = EL_NOT_FOUND;
+
+    find_status = el_flash_read(read_data);
+    return find_status;
+}
+
+void write_iap_status(save_data_t *write_data)
+{
+    el_flash_write(write_data);
+}
 
 /**
   * @brief  Initialize the IAP: Configure communication
@@ -157,6 +169,9 @@ static void DelayTimeAdapter(uint32_t delaytime)
   */
 void IAP_Init(void)
 {
+    eFIND_Status_Def find_status = EL_NOT_FOUND;
+    save_data_t rw_data;
+
     /* Initialise Flash */
     FLASH_If_Init();
 		
@@ -164,7 +179,24 @@ void IAP_Init(void)
     iapInterface.ReceiveFunction = ReceiveAdapter;
     iapInterface.DelayTimeMsFunction = DelayTimeAdapter;
     iapInterface.funtionJumpFunction = funtionJump;
+
+    find_status = el_flash_read(&rw_data);
+    if(EL_FIND_SUCCESS != find_status)
+    { // 说明是第一次，或者之前的数据有误已擦除区域，那就先写入一组初始值
+        rw_data.header = HEADER;
+        rw_data.iap_msg.status = IAP_NO_APP;
+        rw_data.iap_msg.version = 1;
+        rw_data.iap_msg.transmitMethod = TRANSMIT_METHOD_USB;
+        rw_data.ender = ENDER;
+        write_iap_status(&rw_data);
+    }
+		//el_test();
 }
 
 
+int fputc(int ch, FILE *f)
+{
+	while(CDC_Transmit_FS((uint8_t *)&ch, 1) == USBD_BUSY);
+	return ch;
+}
 /************************ (C) COPYRIGHT Jason *****END OF FILE****/

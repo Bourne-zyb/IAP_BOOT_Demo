@@ -23,65 +23,73 @@
  * 依次写入新数据，不直接覆盖旧数据。
  * 读数据时，找到 最后一个有效数据 作为当前标志值。
  * 当整个块写满时，擦除整个块，然后从头开始。
+ * 
+ * 
+ *  3. map 中某个bit是0表示 正在使用 或者 全部使用完
+ *  都是从0开始，0 表示第一个数据
+ * TODO: 添加整个flash的验证计算对不对，如果被窜给就删除全部数据，重新写入默认值
+ * TODO: 添加对数据不足32的支持，不然bit不满
  */
 /* Exported constants --------------------------------------------------------*/
+#define CNT_FIRST               (1)    
 #define AREA_SON_SIZE           (0x400)                  /* 2K 大小*/
-#define HEADER                  (0x55AA)
-#define ENDER                   (0xAA55)
+
 #define EL_FLASH_START_ADDRESS  IAP_STATUS_ADDRESS       /* Flash扇区起始地址，用于写入标志数据 */
 #define EL_FLASH_SECTOR_START   IAP_STATUS_START_SECTOR  /* 使用于IAP状态空间 */
 #define EL_FLASH_SECTOR_END     IAP_STATUS_END_SECTOR    /* 使用于IAP状态空间 */
 #define EL_AREA_SIZE            IAP_STATUS_SIZE          /* 均衡磨损扇区大小为 16 KB */ 
 
-#define _ALIGN                  2                      /* world 字 对齐 跟flash写入的保持一致*/
-typedef    uint32_t              map_size_t;
-typedef    uint32_t              flash_address_t;
-
+typedef    uint32_t             el_map_size_t;
+typedef    uint32_t             el_flash_address_t;
+typedef    save_data_t          el_savedata_t;
 /* Exported types ------------------------------------------------------------*/
-typedef enum {
-    EL_FIND_SUCCESS,    // Successfully found the latest data address
-    EL_NOT_FOUND       // No valid data address found
-} efind_status_t;
-
-#pragma pack(push, _ALIGN)           /* flash 按照 FLASH_TYPEPROGRAM_WORD 写入的，因此按照2字节对齐 */ 
+#pragma pack(push, FLASH_PROGRAM_SIZE)           /* flash 按照 FLASH_TYPEPROGRAM_WORD 写入的，因此按照4字节对齐 */ 
 typedef struct  
 {   
-    uint16_t header;
-    //TODO: add save data start.
-    iap_status_t iap_status;
-    //TODO: add save data end.
-    uint16_t ender;
-}save_data_t;
-#pragma pack(pop)   
+    el_map_size_t map;
+    uint16_t dataSize;
+}el_table_t;
+#pragma pack(pop)  
 
 /* Exported macro ------------------------------------------------------------*/
-#define MAX_UNSIGNED_TYPE(type) ((type)(~(type)0))       /*  Macro to get the maximum value of an unsigned type */
-#define EL_AREA_SON_UNUSE_VALUE (MAX_UNSIGNED_TYPE(map_size_t))
+#define MAX_UNSIGNED_TYPE(type)        ((type)(~(type)0))       /*  Macro to get the maximum value of an unsigned type */
+#define EL_AREA_SON_UNUSE_VALUE        (MAX_UNSIGNED_TYPE(el_map_size_t))
 
-#define EL_AREA_SON_SUM         (EL_AREA_SIZE / (AREA_SON_SIZE))        /* 共计有多少个子区域*/
+#define EL_AREA_SON_SUM                (EL_AREA_SIZE / (AREA_SON_SIZE))        /* 共计有多少个子区域 */
+#define EL_TABLE_SIZE                  (sizeof(el_table_t))
+#define EL_DATA_SIZE                   (sizeof(el_savedata_t))                   /* 每次要存储的字节数（最好要跟flash写入的单位对应） */
+#define EL_SON2DATA_SUM                ((AREA_SON_SIZE - EL_TABLE_SIZE) / EL_DATA_SIZE)   /* 子区域中可以存储数据的总个数 */
+#define EL_MAP_BITS_SUM                (sizeof(el_map_size_t) * 8)
 
-#define EL_MAP_SIZE             (sizeof(map_size_t))
-#define EL_DATA_SIZE            (sizeof(save_data_t))                   /* 每次要存储的字节数（最好要跟flash写入的单位对应 */
-#define EL_SON2DATA_SUM   \
-    (((AREA_SON_SIZE - EL_MAP_SIZE) / EL_DATA_SIZE) - (((AREA_SON_SIZE - EL_MAP_SIZE) % EL_DATA_SIZE)))   /* 子区域中可以存储数据的总个数 */ 
+#define EL_MAP_BIT2DATA_SUM            \
+    ((0 != (EL_SON2DATA_SUM % EL_MAP_BITS_SUM)) ? \
+     ((EL_SON2DATA_SUM / EL_MAP_BITS_SUM) + 1) : \
+     (EL_SON2DATA_SUM / EL_MAP_BITS_SUM))
+//#define EL_LAST_BIT2DATA_SUM           \
+//    ((0 != (EL_SON2DATA_SUM % EL_MAP_BITS_SUM)) ? \
+    (EL_SON2DATA_SUM % EL_MAP_BITS_SUM) :\
+    EL_MAP_BIT2DATA_SUM)
 
-#define EL_MAP_BITS_SUM         (sizeof(map_size_t) * 8)
-#define EL_MAP_BIT2DATA_SUM     (EL_SON2DATA_SUM / EL_MAP_BITS_SUM)     /* 每个bit表示多少个数据已经被写入了 */
+#define EL_GET_SON_START_ADDR(sonid)   \
+    ((el_flash_address_t)(EL_FLASH_START_ADDRESS + ((sonid - 1) * AREA_SON_SIZE)))
+#define EL_GET_TABLE_ADDR(sonid)       EL_GET_SON_START_ADDR(sonid)
+#define EL_GET_TABLE(sonid)            (*(el_table_t*)EL_GET_TABLE_ADDR(sonid))
 
-#define EL_GET_SON_START_ADDR(index)    ((flash_address_t)(EL_FLASH_START_ADDRESS + (index * AREA_SON_SIZE)))
-#define EL_GET_MAP_ADDR(index)  EL_GET_SON_START_ADDR(index)
-#define EL_GET_MAP(index)       (*(map_size_t*)EL_GET_MAP_ADDR(index))
+#define EL_GET_DATA_ADDR(sonid, dataid) \
+    ((el_flash_address_t)((EL_GET_SON_START_ADDR(sonid) + EL_TABLE_SIZE + ((dataid - 1) * EL_DATA_SIZE))))
+#define EL_GET_DATA(sonid, dataid)   (*(el_savedata_t*)EL_GET_DATA_ADDR(sonid, dataid))
 
-#define EL_GET_DATA_ADDR(sonindex, index)    \
-    ((flash_address_t)((EL_GET_SON_START_ADDR(sonindex) + EL_MAP_SIZE + (index * EL_DATA_SIZE))))
-#define EL_GET_DATA(sonindex, index)    (*(save_data_t*)EL_GET_DATA_ADDR(sonindex, index))
-#define EL_CHECK_DATE(data)     ((HEADER == (data).header) && (ENDER == (data).ender) ? 1 : 0)
-#define EL_SON_IS_USEING(map)   ((EL_AREA_SON_UNUSE_VALUE != map) ? 1 : 0)
-#define EL_SET_MAPBIT(map)   ((EL_AREA_SON_UNUSE_VALUE != map) ? 1 : 0)
+#define EL_ID_2_ADDRID(id2addrIDX)      (id2addrIDX - 1)		
+#define EL_CHECK_DATE(data)             ((HEADER == (data).header) && (ENDER == (data).ender) ? 1 : 0)
+#define EL_CHECK_TABLE(table)           ((EL_DATA_SIZE == table.dataSize) ? 1 : 0)
+#define EL_SON_IS_USEING(map)           ((EL_AREA_SON_UNUSE_VALUE != map) ? 1 : 0)
+
 /* Exported variables --------------------------------------------------------*/
 
 
 /* Exported function prototypes ----------------------------------------------*/
+void el_flash_write(el_savedata_t* save_date_p);
+eFIND_Status_Def el_flash_read(el_savedata_t* recv_date_p);
 void el_test(void);
 
 #endif /* __FLASH_E_LEVEL_H */
