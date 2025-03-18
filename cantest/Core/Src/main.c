@@ -101,8 +101,10 @@ int main(void)
 
 	/* Execute the IAP driver in order to reprogram the Flash */
 	IAP_Init();
+  
 	/* Display main menu */
 	Main_Menu();
+  /* program will not arrive here !!! */
 
   while (1)
   {

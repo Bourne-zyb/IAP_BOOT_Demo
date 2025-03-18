@@ -13,3 +13,5 @@ cantest/MDK-ARM/JLinkLog.txt
 *.map
 cantest/.vscode
 *.lnp
+cantest/MDK-ARM/.vscode
+cantest/MDK-ARM/cantest
