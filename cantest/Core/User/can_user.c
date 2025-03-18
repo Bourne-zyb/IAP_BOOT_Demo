@@ -16,6 +16,8 @@
 /* Private typedef -----------------------------------------------------------*/ 
 
 /* Private define ------------------------------------------------------------*/ 
+#define DEBUG_CAN 		0
+#define DEBUG_PRINTF  0
 
 /* Private macro -------------------------------------------------------------*/ 
 
@@ -30,7 +32,7 @@ static CommandEntry commandTable[] = {
 };
 
 /* Private function prototypes -----------------------------------------------*/ 
-
+extern void can_uds_handle(uint32_t id, uint8_t dlc, uint8_t *data);
 /* Private functions ---------------------------------------------------------*/ 
 void handle_restart(void) {
   // 将 cnt 变量清零
@@ -138,7 +140,14 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
     
     HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &can_Rx, recvBuf);
     
-		canrecv_cnt++;
+    can_uds_handle(
+        (can_Rx.IDE == CAN_ID_STD) ? can_Rx.StdId : can_Rx.ExtId,
+        can_Rx.DLC,
+        recvBuf
+    );
+
+#if DEBUG_CAN
+    canrecv_cnt++;
 		
 		// 数据连续性校验
     uint8_t dataValid = 1; // 假设数据是有效的
@@ -171,7 +180,6 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
         CDC_Transmit_FS(usbBuf, len);
     }
 	
-#define DEBUG_PRINTF 1
 #if DEBUG_PRINTF
     if (can_Rx.IDE == CAN_ID_STD)
     {
@@ -201,6 +209,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
     }
 #endif 
 #undef DEBUG_PRINTF
+#endif
 }
 
 /**

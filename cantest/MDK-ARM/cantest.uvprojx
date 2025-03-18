@@ -314,7 +314,7 @@
               <OCR_RVCT4>
                 <Type>1</Type>
                 <StartAddress>0x8000000</StartAddress>
-                <Size>0xd000</Size>
+                <Size>0xc000</Size>
               </OCR_RVCT4>
               <OCR_RVCT5>
                 <Type>1</Type>
@@ -1453,6 +1453,11 @@
               <FileName>flash_e_level.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Core\User\flash_e_level.c</FilePath>
+            </File>
+            <File>
+              <FileName>can_uds_simple.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\User\can_uds_simple.c</FilePath>
             </File>
           </Files>
         </Group>

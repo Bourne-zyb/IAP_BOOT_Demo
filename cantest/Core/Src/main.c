@@ -104,8 +104,8 @@ int main(void)
   
 	/* Display main menu */
 	Main_Menu();
-  /* program will not arrive here !!! */
-
+	
+  /* IAP program will not arrive here !!! */
   while (1)
   {
 #if 0  
