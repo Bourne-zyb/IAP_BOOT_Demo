@@ -220,9 +220,10 @@ enum {
 /* Exported functions ------------------------------------------------------- */
 void FLASH_If_Init(void);
 HAL_StatusTypeDef FLASH_If_Erase_App_Space(void);
-uint32_t FLASH_If_GetWriteProtectionStatus(void);
 uint32_t FLASH_If_Write(uint32_t destination, uint32_t *p_source, uint32_t length);
-uint32_t FLASH_If_WriteProtectionConfig(uint32_t modifier);
+//uint32_t FLASH_If_GetWriteProtectionStatus(void);
+
+//uint32_t FLASH_If_WriteProtectionConfig(uint32_t modifier);
 
 #endif  /* __FLASH_IF_H */
 

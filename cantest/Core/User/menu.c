@@ -49,6 +49,7 @@
 #include "menu.h"
 #include "ymodem.h"
 #include "iap_user.h"
+#include "can_uds_simple.h"
 
 /* Private typedef -----------------------------------------------------------*/
 #define 	IAP_APP_READ  0
@@ -173,6 +174,12 @@ void Main_Menu(void)
   Serial_PutString("\r\n=                                                     By Jason       =");
   Serial_PutString("\r\n======================================================================");
   Serial_PutString("\r\n\r\n");
+
+  while(1)
+  {
+    can_uds_boot_poll();
+  }
+
 
 #if IAP_FLASH_WRITE_PROTECT
   /* Test if any sector of Flash memory where user application will be loaded is write protected */

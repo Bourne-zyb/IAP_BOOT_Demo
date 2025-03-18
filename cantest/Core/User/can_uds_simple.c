@@ -9,6 +9,7 @@
 
 /* Includes ------------------------------------------------------------------*/ 
 #include "can_uds_simple.h" 
+#include "flash_if.h"
 
 /* Private typedef -----------------------------------------------------------*/ 
 enum {noSession, activeSession, downloadRequested} programmingSessionStatus;
@@ -16,6 +17,8 @@ enum {noSession, activeSession, downloadRequested} programmingSessionStatus;
 typedef struct
 {
 	void (*tx_msg_func)(uint32_t id, uint8_t *data, uint8_t len);
+	uint32_t (*flash_write_32_func)(uint32_t address, uint32_t data);
+	HAL_StatusTypeDef (*flash_erase_app_func)(void);
 } can_uds_t;
 
 /* Private define ------------------------------------------------------------*/ 
@@ -24,6 +27,9 @@ typedef struct
 
 /* Private variables ---------------------------------------------------------*/ 
 can_uds_t can_uds = {0};
+
+uint8_t tmpBuf[10];
+uint8_t tmpBufLen;
 
 canMsg TxMessage;
 canMsg RxMessage;
@@ -54,9 +60,7 @@ void CANRxPacket(uint8_t *dataBuf, uint8_t currlen);
 inline void CANRxError(void);
 void CANSendFC(uint8_t fs, uint8_t bs, uint8_t stmin);
 
-/* Exported functions -*/ 
 /* Private functions ---------------------------------------------------------*/ 
-
 void CANProcessPacket(uint8_t *dataBuf, uint8_t len) // Process received packet
 {
 	if(len == 0)
@@ -78,7 +82,6 @@ void CANProcessPacket(uint8_t *dataBuf, uint8_t len) // Process received packet
 	case 0x10: // diagnosticSessionControl
 		if(dataBuf[1] == 0x02) // programmingSession
 		{
-			//flash_unlock();
 			sendBuf[0] = 0x02;
 			sendBuf[1] = 0x0F;
 			sendBuf[2] = 0x0F;
@@ -98,19 +101,19 @@ void CANProcessPacket(uint8_t *dataBuf, uint8_t len) // Process received packet
 		}else
 			errCode = 0x22; // conditionsNotCorrect
 		break;
-	case 0x22: // ReadDataByIdentifier
-		if(dataBuf[1] == 0xF1 && dataBuf[2] == 0x80) // bootSoftwareIdentificationDataIdentifier
-		{
-			sendBuf[0] = dataBuf[1];
-			sendBuf[1] = dataBuf[2];
-			sendBuf[2] = 'B';
-			sendBuf[3] = '1';
-			sendBuf[4] = '-';
-			sendBuf[5] = '0';
-			CANAnswer(0x62, sendBuf, 6);
-		}else
-			errCode = 0x31; // requestOutOfRange
-		break;
+	// case 0x22: // ReadDataByIdentifier
+	// 	if(dataBuf[1] == 0xF1 && dataBuf[2] == 0x80) // bootSoftwareIdentificationDataIdentifier
+	// 	{
+	// 		sendBuf[0] = dataBuf[1];
+	// 		sendBuf[1] = dataBuf[2];
+	// 		sendBuf[2] = 'B';
+	// 		sendBuf[3] = '1';
+	// 		sendBuf[4] = '-';
+	// 		sendBuf[5] = '0';
+	// 		CANAnswer(0x62, sendBuf, 6);
+	// 	}else
+	// 		errCode = 0x31; // requestOutOfRange
+	// 	break;
 	case 0x34: // RequestDownload
 		if(programmingSessionStatus != activeSession)
 		{
@@ -307,8 +310,120 @@ void can_uds_handle(uint32_t id, uint8_t dlc, uint8_t *data)
 	}
 }
 
+uint32_t flash_write_32(uint32_t address, uint32_t data)
+{
+	return FLASH_If_Write(address, &data, 1);
+}
+
 void can_uds_init(void)
 {
 	can_uds.tx_msg_func = &can_send;
+	can_uds.flash_write_32_func = &flash_write_32;
+	can_uds.flash_erase_app_func = &FLASH_If_Erase_App_Space;
+}
+
+/* this function is called in main loop */
+void can_uds_boot_poll(void)
+{
+	if(eraseFlag)
+	{
+		eraseFlag = 0;
+		can_uds.flash_erase_app_func();
+
+		Serial_PutString("\n\n\r Erase Flash Done! \n\r\n\r");
+	}
+	if(writeLen)
+	{
+		uint32_t data;
+		uint8_t *startPtr;
+
+		startPtr = CANRxCurrDataPtr;
+
+		if(tmpBufLen)
+		{
+			uint8_t shift = 0;
+			data = 0;
+			for(int i=0;i<tmpBufLen;i++)
+			{
+				data += (tmpBuf[i]) << shift;
+				shift+=8;
+				if(shift>24)
+					shift = 0;
+			}
+			for(int i=tmpBufLen;i<4;i++)
+			{
+				data += (*CANRxCurrDataPtr) << shift;
+				CANRxCurrDataPtr++;
+				shift+=8;
+				if(shift>24)
+					shift = 0;
+			}
+			can_uds.flash_write_32_func(CANRxCurrFlash,data);
+			CANRxCurrFlash +=4;
+			tmpBufLen = 0;
+		}
+
+		while(writeLen - (CANRxCurrDataPtr-startPtr) >= 4)
+		{
+			data = (*CANRxCurrDataPtr);
+			CANRxCurrDataPtr++;
+			data += (*CANRxCurrDataPtr) << 8;
+			CANRxCurrDataPtr++;
+			data += (*CANRxCurrDataPtr) << 16;
+			CANRxCurrDataPtr++;
+			data += (*CANRxCurrDataPtr) << 24;
+			CANRxCurrDataPtr++;
+			can_uds.flash_write_32_func(CANRxCurrFlash,data);
+			CANRxCurrFlash += 4;
+		}
+		if((CANRxCurrDataPtr-startPtr) < writeLen)
+		{
+			tmpBufLen = writeLen - (CANRxCurrDataPtr-startPtr);
+			for(int i=0;i<tmpBufLen;i++)
+			{
+				tmpBuf[i] = (*CANRxCurrDataPtr);
+				CANRxCurrDataPtr++;
+			}
+		}
+		writeLen = 0;
+		uint8_t t = blockSequenceCounter;
+		CANAnswer(0x76, &t, 1);
+		blockSequenceCounter++;
+	}
+	if(endFlag)
+	{
+		uint32_t data;
+		if(tmpBufLen)
+		{
+			uint8_t shift = 0;
+			data = 0;
+			for(int i=0;i<tmpBufLen;i++)
+			{
+				data += (tmpBuf[i]) << shift;
+				shift+=8;
+				if(shift>24)
+					shift = 0;
+			}
+			for(int i=tmpBufLen;i<4;i++)
+			{
+				data += 0xFF << shift;
+				shift+=8;
+				if(shift>24)
+					shift = 0;
+			}
+			can_uds.flash_write_32_func(CANRxCurrFlash,data);
+			CANRxCurrFlash +=4;
+			tmpBufLen = 0;
+		}
+
+		uint8_t sendBuf[2];
+		sendBuf[0] = writeCrc>>8;
+		sendBuf[1] = writeCrc & 0xff;
+		CANAnswer(0x77, sendBuf, 2);
+		endFlag = 0;
+
+		Serial_PutString("\n\n\r IAP load programming Done! \n\r\n\r");
+		while(1);	// debug~
+	}
 }
 /************************ (C) COPYRIGHT Jason *****END OF FILE****/
