@@ -72,6 +72,12 @@ typedef enum
   IAP_APP_DONE,
 } eIAP_Status_Def;
 
+typedef enum
+{
+  NEWAPP_VILIBLE,
+  NEWAPP_NOT_VILIBLE,
+}eNEWAPP_Status_Def;
+
 typedef struct  
 {   
   eIAP_TransmitMethod_Def status;
@@ -110,6 +116,7 @@ typedef struct {
   HAL_StatusTypeDef (*TransmitFunction)(void *data, uint16_t length, uint32_t timeout);  /* Transmit function pointer */
   HAL_StatusTypeDef (*ReceiveFunction)(uint8_t *data, uint16_t length, uint32_t timeout); /* Receive function pointer */
   void (*DelayTimeMsFunction)(uint32_t delaytime);                                      /* Delay function pointer */
+  eNEWAPP_Status_Def (*funtionCheckFunction)(void);                                     /* Function check pointer */
   void (*funtionJumpFunction)(void);                                                    /* Function jump pointer */
 } IAP_Interface;
 

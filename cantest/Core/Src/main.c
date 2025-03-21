@@ -25,6 +25,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "iap_user.h"
+#include "can_uds_simple.h"
 
 /* USER CODE END Includes */
 
@@ -93,30 +94,33 @@ int main(void)
   MX_CAN1_Init();
   /* USER CODE BEGIN 2 */
 
-  can_board_init();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
 	/* Execute the IAP driver in order to reprogram the Flash */
-	IAP_Init();
-  
+  IAP_Init();
+  can_board_init();
+  can_uds_init();
+
 	/* Display main menu */
 	Main_Menu();
 	
   /* IAP program will not arrive here !!! */
   while (1)
   {
-#if 0  
+#if 0
+    char data[8] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
+    can_send(0x86, data, 8);
+
     HAL_GPIO_WritePin(LED_CTR_GPIO_Port, LED_CTR_Pin, GPIO_PIN_SET);
     HAL_Delay(500);   
     HAL_GPIO_WritePin(LED_CTR_GPIO_Port, LED_CTR_Pin, GPIO_PIN_RESET);
     HAL_Delay(500);		
-  
-		send_hex_data();
-		
-		CDC_Transmit_FS("fuck\r\n", 6);   
+
+    CDC_Transmit_FS("fuck\r\n", 6);    
 #endif	
     /* USER CODE END WHILE */
 

@@ -32,7 +32,7 @@ static CommandEntry commandTable[] = {
 };
 
 /* Private function prototypes -----------------------------------------------*/ 
-extern void can_uds_handle(uint32_t id, uint8_t dlc, uint8_t *data);
+extern void can_uds_handle(uint32_t canid, uint8_t *data, uint8_t dlc);
 /* Private functions ---------------------------------------------------------*/ 
 void handle_restart(void) {
   // 将 cnt 变量清零
@@ -142,8 +142,8 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
     
     can_uds_handle(
         (can_Rx.IDE == CAN_ID_STD) ? can_Rx.StdId : can_Rx.ExtId,
-        can_Rx.DLC,
-        recvBuf
+        recvBuf,
+        can_Rx.DLC
     );
 
 #if DEBUG_CAN
@@ -271,7 +271,7 @@ void can_board_init(void)
 
     HAL_Delay(100);   
 
-    handle_cantest_welcome();
+    // handle_cantest_welcome();
 }
 
 

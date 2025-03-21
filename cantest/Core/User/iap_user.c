@@ -27,6 +27,19 @@ static pFunction JumpToApplication;
 
 /* Private functions ---------------------------------------------------------*/
 
+eNEWAPP_Status_Def funtionCheck()
+{
+    /* Test if user code is programmed starting from address "APPLICATION_ADDRESS" */
+    if (((*(__IO uint32_t*)APPLICATION_ADDRESS) & 0x2FFE0000 ) == 0x20000000)
+    {   
+        return NEWAPP_VILIBLE;
+    }
+    else
+    {
+        return NEWAPP_NOT_VILIBLE;   
+    }
+}
+
 static void funtionJump()
 {
     /* Test if user code is programmed starting from address "APPLICATION_ADDRESS" */
@@ -179,6 +192,7 @@ void IAP_Init(void)
     iapInterface.ReceiveFunction = ReceiveAdapter;
     iapInterface.DelayTimeMsFunction = DelayTimeAdapter;
     iapInterface.funtionJumpFunction = funtionJump;
+    iapInterface.funtionCheckFunction = funtionCheck;
 
     find_status = el_flash_read(&rw_data);
     if(EL_FIND_SUCCESS != find_status)
@@ -196,7 +210,9 @@ void IAP_Init(void)
 
 int fputc(int ch, FILE *f)
 {
-	while(CDC_Transmit_FS((uint8_t *)&ch, 1) == USBD_BUSY);
-	return ch;
+	while(CDC_Transmit_FS((uint8_t *)&ch, 1) == USBD_BUSY)
+	{
+		iapInterface.DelayTimeMsFunction(1);   
+	}
 }
 /************************ (C) COPYRIGHT Jason *****END OF FILE****/

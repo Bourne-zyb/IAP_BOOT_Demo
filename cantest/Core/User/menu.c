@@ -175,12 +175,6 @@ void Main_Menu(void)
   Serial_PutString("\r\n======================================================================");
   Serial_PutString("\r\n\r\n");
 
-  while(1)
-  {
-    can_uds_boot_poll();
-  }
-
-
 #if IAP_FLASH_WRITE_PROTECT
   /* Test if any sector of Flash memory where user application will be loaded is write protected */
   FlashProtection = FLASH_If_GetWriteProtectionStatus();

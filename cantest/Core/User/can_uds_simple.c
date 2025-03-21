@@ -11,419 +11,392 @@
 #include "can_uds_simple.h" 
 #include "flash_if.h"
 
-/* Private typedef -----------------------------------------------------------*/ 
-enum {noSession, activeSession, downloadRequested} programmingSessionStatus;
+#include <stdint.h>
+#include <string.h>
+#include <stdio.h>
 
-typedef struct
-{
-	void (*tx_msg_func)(uint32_t id, uint8_t *data, uint8_t len);
-	uint32_t (*flash_write_32_func)(uint32_t address, uint32_t data);
-	HAL_StatusTypeDef (*flash_erase_app_func)(void);
-} can_uds_t;
+/* Private typedef -----------------------------------------------------------*/ 
 
 /* Private define ------------------------------------------------------------*/ 
 
 /* Private macro -------------------------------------------------------------*/ 
 
 /* Private variables ---------------------------------------------------------*/ 
-can_uds_t can_uds = {0};
-
-uint8_t tmpBuf[10];
-uint8_t tmpBufLen;
-
-canMsg TxMessage;
-canMsg RxMessage;
-
-volatile uint8_t bootloaderActive;
-
-uint32_t memoryAddress;
-uint32_t memorySize;
-
-uint16_t writeCrc;
-
-volatile uint8_t eraseFlag;
-volatile uint8_t writeLen;
-volatile uint8_t endFlag;
-volatile uint8_t blockSequenceCounter;
-
-uint8_t CANRxDataBuf[256];
-volatile uint16_t CANRxCurrLen;
-volatile uint16_t CANRxCurrWr;
-//uint16_t CANRxCurrRd;
-uint8_t *CANRxCurrDataPtr;
-uint32_t CANRxCurrFlash;
+// 全局缓冲区
+static uint8_t uds_data_buffer[UDS_MAX_PAYLOAD_SIZE];
+static uint16_t uds_data_length = 0; // 当前接收数据长度
+static uint16_t expected_data_length = 0; // 总数据长度
+static uint8_t last_seq_number = 0xFF; // 上一个连续帧序号（用于连续性判断）
+static programmingSessionStatus_t currentSessionStatus = noSession;
+static can_uds_t can_uds = {0};
 
 /* Private function prototypes -----------------------------------------------*/ 
-void CANProcessPacket(uint8_t *dataBuf, uint8_t len);
-void CANAnswer(uint8_t serviceId, uint8_t *dataBuf, uint8_t len);
-void CANRxPacket(uint8_t *dataBuf, uint8_t currlen);
-inline void CANRxError(void);
-void CANSendFC(uint8_t fs, uint8_t bs, uint8_t stmin);
+void send_flow_control_frame(FlowControlType type, uint8_t block_size, uint8_t separation_time);
+void send_uds_error_response(UDS_ErrorCode error_code);
+void send_iso15765_message(uint32_t id, uint8_t *data, uint16_t length);
+
+// 服务处理函数声明
+void uds_handle_session_control(uint8_t *data, uint16_t length);     // 0x10 会话控制
+void uds_handle_ecu_reset(uint8_t *data, uint16_t length);           // 0x11 ECU重置
+void uds_handle_request_download(uint8_t *data, uint16_t length);    // 0x34 请求下载
+void uds_handle_transfer_data(uint8_t *data, uint16_t length);       // 0x36 数据传输
+void uds_handle_transfer_exit(uint8_t *data, uint16_t length);       // 0x37 传输退出
+void uds_handle_routine_control(uint8_t *data, uint16_t length);     // 0x31 例行控制
+void send_uds_error_response(UDS_ErrorCode error_code);              // 错误响应函数
+void process_uds_service(uint8_t *data, uint16_t length);            // 服务分发函数
 
 /* Private functions ---------------------------------------------------------*/ 
-void CANProcessPacket(uint8_t *dataBuf, uint8_t len) // Process received packet
+// ISO15765 主处理函数
+void can_uds_handle(uint32_t canid, uint8_t *data, uint8_t dlc) {
+    // 检查传入的 CAN ID 是否有效
+    if (canid != VALID_CAN_ID) {
+        printf("CAN ID 0x%X is not valid. Ignoring message.\n", canid);
+        return;
+    }
+
+    // 帧类型解析
+    switch (data[0] & 0xF0) {
+        case 0x00: { // 单帧 Single Frame
+            uint8_t sf_length = data[0] & 0x0F; // 提取数据长度
+            memcpy(uds_data_buffer, &data[1], sf_length); // 复制数据到缓冲区
+            uds_data_length = sf_length;
+
+            // 调用服务处理函数
+            process_uds_service(uds_data_buffer, uds_data_length);
+            break;
+        }
+        case 0x10: { // 首帧 First Frame
+            expected_data_length = ((data[0] & 0x0F) << 8) | data[1]; // 提取总数据长度
+            uds_data_length = 0; // 重置当前长度
+            memcpy(uds_data_buffer, &data[2], dlc - 2); // 复制首帧数据
+            uds_data_length += dlc - 2;
+
+            // 发送流控帧 (CTS)
+            send_flow_control_frame(FLOW_STATUS_CONTINUE, 00, 0x20); // Block Size = 00(无限制), Separation Time = 5ms
+            break;
+        }
+        case 0x20: { // 连续帧 Consecutive Frame
+            uint8_t seq_number = data[0] & 0x0F; // 提取连续帧序号
+
+            // 判断连续性
+            if ((last_seq_number != 0xFF) && ((seq_number != ((last_seq_number + 1) & 0x0F)))) {
+                printf("Frame sequence error: Expected 0x%X but got 0x%X\n", (last_seq_number + 1) & 0x0F, seq_number);
+                send_uds_error_response(UDS_ERROR_TRANSFER_DATA_ERROR); // 发送无效序列错误
+                uds_data_length = 0;
+                expected_data_length = 0;
+                return;
+            }
+
+            last_seq_number = seq_number; // 更新序号
+            memcpy(uds_data_buffer + uds_data_length, &data[1], dlc - 1); // 累加数据
+            uds_data_length += dlc - 1;
+            break;
+        }
+        default: {
+            printf("Unsupported Frame Type: 0x%X\n", data[0]);
+            break;
+        }
+    }
+
+    // 检查数据是否接收完整
+    if (uds_data_length >= expected_data_length && expected_data_length > 0) {
+        process_uds_service(uds_data_buffer, uds_data_length);
+        // 清理缓冲区
+        uds_data_length = 0;
+        expected_data_length = 0;
+        last_seq_number = 0xFF; // 重置序号
+    }
+}
+
+void process_uds_service(uint8_t *data, uint16_t length) 
 {
-	if(len == 0)
+    if (length < 1) {
+        DEBUG_PRINT("Error: Data length is insufficient\n");
+        send_uds_error_response(UDS_ERROR_REQUEST_OUT_OF_RANGE);
+        return;
+    }
+
+    UDS_ServiceID service_id = (UDS_ServiceID)data[0];
+
+    // 处理服务ID
+    switch (service_id) {
+        case UDS_SERVICE_DIAGNOSTIC_SESSION_CONTROL: // 0x10 会话控制
+            DEBUG_PRINT("Processing Service ID: 0x10 (Diagnostic Session Control)\n");
+            uds_handle_session_control(data + 1, length - 1);
+            break;
+
+        case UDS_SERVICE_REQUEST_DOWNLOAD: // 0x34 请求下载
+            DEBUG_PRINT("Processing Service ID: 0x34 (Request Download)\n");
+            if (currentSessionStatus != activeSession) {
+                DEBUG_PRINT("Error: Request Download not allowed in current session\n");
+                send_uds_error_response(UDS_ERROR_GENERAL_REJECT);
+                return;
+            }
+            uds_handle_request_download(data + 1, length - 1);
+            break;
+
+        case UDS_SERVICE_TRANSFER_DATA: // 0x36 数据传输
+            DEBUG_PRINT("Processing Service ID: 0x36 (Transfer Data)\n");
+            if (currentSessionStatus != downloadRequested) {
+                DEBUG_PRINT("Error: Transfer Data not allowed in current session\n");
+                send_uds_error_response(UDS_ERROR_GENERAL_REJECT);
+                return;
+            }
+            uds_handle_transfer_data(data + 1, length - 1);
+            break;
+
+        case UDS_SERVICE_TRANSFER_EXIT: // 0x37 传输退出
+            DEBUG_PRINT("Processing Service ID: 0x37 (Transfer Exit)\n");
+            if (currentSessionStatus != downloadRequested) {
+                DEBUG_PRINT("Error: Transfer Exit not allowed in current session\n");
+                send_uds_error_response(UDS_ERROR_GENERAL_REJECT);
+                return;
+            }
+            uds_handle_transfer_exit(data + 1, length - 1);
+            break;
+
+        case UDS_SERVICE_ROUTINE_CONTROL: // 0x31 例行控制
+            DEBUG_PRINT("Processing Service ID: 0x31 (Routine Control)\n");
+            if (currentSessionStatus != activeSession) {
+                DEBUG_PRINT("Error: Routine Control not allowed in current session\n");
+                send_uds_error_response(UDS_ERROR_GENERAL_REJECT);
+                return;
+            }
+            uds_handle_routine_control(data + 1, length - 1);
+            break;
+
+        default:
+            DEBUG_PRINT("Unknown Service ID: 0x%X\n", service_id);
+            send_uds_error_response(UDS_ERROR_SERVICE_NOT_SUPPORTED); // 服务不支持错误
+            break;
+    }
+}
+
+// 流控帧发送函数
+void send_flow_control_frame(FlowControlType type, uint8_t block_size, uint8_t separation_time) {
+    uint8_t flow_control_frame[8] = {0};
+
+    flow_control_frame[0] = type; // 流控帧类型
+    flow_control_frame[1] = block_size; // Block Size
+    flow_control_frame[2] = separation_time; // Separation Time
+
+    DEBUG_PRINT("Sending Flow Control Frame: Type=0x%X, Block Size=%u, Separation Time=%u\n",
+           type, block_size, separation_time);
+
+	send_iso15765_message(VALID_CAN_ID, flow_control_frame, 8);
+}
+
+// 错误响应函数
+void send_uds_error_response(UDS_ErrorCode error_code) {
+	// uint8_t error_response[3] = {0};
+
+    // error_response[0] = 0x7F; // 通用否定响应
+    // error_response[1] = uds_data_buffer[0]; // 原服务 ID
+    // error_response[2] = error_code; // 错误码
+
+	uint8_t error_response[3] = {0x7F, uds_data_buffer[0], error_code}; // 通用否定响应
+
+    DEBUG_PRINT("Sending UDS Error Response: Service ID=0x%X, Error Code=0x%X\n",
+                error_response[1], error_code);
+	send_iso15765_message(VALID_CAN_ID, error_response, sizeof(error_response));
+}
+
+// 服务 0x10: 会话控制 (Diagnostic Session Control)
+void uds_handle_session_control(uint8_t *data, uint16_t length) {
+    if (length < 1) {
+        send_uds_error_response(UDS_ERROR_REQUEST_OUT_OF_RANGE);
+        return;
+    }
+
+    uint8_t sub_function = data[0];
+    if (sub_function != 0x02) { // 判断是否为编程会话
+        send_uds_error_response(UDS_ERROR_REQUEST_OUT_OF_RANGE);
+        return;
+    }
+
+    DEBUG_PRINT("Entering Programming Session (Service ID: 0x10, Sub-function: 0x02)\n");
+    currentSessionStatus = activeSession; // 切换到活动会话状态
+    uint8_t response[2] = {0x50, data[0]}; // 正响应
+    send_iso15765_message(VALID_CAN_ID, response, sizeof(response));
+}
+
+// 服务 0x11:  (ECU Reset)
+void uds_handle_ecu_reset(uint8_t *data, uint16_t length)
+{
+    if (length < 1) {
+        send_uds_error_response(UDS_ERROR_REQUEST_OUT_OF_RANGE);
+        return;
+    }
+
+    uint8_t sub_function = data[0];
+    if (sub_function != 0x01) { // 硬重置
+        send_uds_error_response(UDS_ERROR_REQUEST_OUT_OF_RANGE);    // 校验数据是否为 11 01
+        return;
+    }
+
+    DEBUG_PRINT("ECU Reset (Service ID: 0x11, Sub-function: 0x01)\n");
+    uint8_t response[2] = {0x51, data[0]}; // 正响应
+    send_iso15765_message(VALID_CAN_ID, response, sizeof(response));
+
+    can_uds.IAP_if->funtionJumpFunction();
+}
+
+
+// 服务 0x31: 例行控制 (Routine Control)
+void uds_handle_routine_control(uint8_t *data, uint16_t length) 
+{
+    save_data_t  rw_data;
+
+    if (currentSessionStatus != activeSession) {
+        send_uds_error_response(UDS_ERROR_CONDITIONS_NOT_CORRECT); // 当前状态不支持例行控制
+        return;
+    }
+
+    if (data[0] != 0x01 || data[1] != 0xFF) {
+        send_uds_error_response(UDS_ERROR_REQUEST_OUT_OF_RANGE); // 校验数据是否为 31 01 FF 00
+        return;
+    }
+	switch (data[2])
 	{
-		CANRxError();
-		return;
-	}
-	CANRxCurrWr = 0;
-	CANRxCurrLen = 0;
-
-	uint8_t serviceId = dataBuf[0];
-	uint8_t sendBuf[8];
-	uint8_t errCode = 0;
-
-	bootloaderActive = 1;
-
-	switch(serviceId)
-	{
-	case 0x10: // diagnosticSessionControl
-		if(dataBuf[1] == 0x02) // programmingSession
-		{
-			sendBuf[0] = 0x02;
-			sendBuf[1] = 0x0F;
-			sendBuf[2] = 0x0F;
-			sendBuf[3] = 0x0F;
-			sendBuf[4] = 0x0F;
-			programmingSessionStatus = activeSession;
-			CANAnswer(0x50, sendBuf, 5);
-		}else
-			errCode = 0x12; // subFunctionNotSupported
-		break;
-	case 0x11: // ECUReset
-		if(dataBuf[1] == 0x01) // HardReset
-		{
-			sendBuf[0] = 0x01;
-			CANAnswer(0x51, sendBuf, 1);
-			//iwdg_start();
-		}else
-			errCode = 0x22; // conditionsNotCorrect
-		break;
-	// case 0x22: // ReadDataByIdentifier
-	// 	if(dataBuf[1] == 0xF1 && dataBuf[2] == 0x80) // bootSoftwareIdentificationDataIdentifier
-	// 	{
-	// 		sendBuf[0] = dataBuf[1];
-	// 		sendBuf[1] = dataBuf[2];
-	// 		sendBuf[2] = 'B';
-	// 		sendBuf[3] = '1';
-	// 		sendBuf[4] = '-';
-	// 		sendBuf[5] = '0';
-	// 		CANAnswer(0x62, sendBuf, 6);
-	// 	}else
-	// 		errCode = 0x31; // requestOutOfRange
-	// 	break;
-	case 0x34: // RequestDownload
-		if(programmingSessionStatus != activeSession)
-		{
-			errCode = 0x22; // conditionsNotCorrect
-		}else
-		{
-			//uint8_t dataFormatIdentifier = dataBuf[1];
-			//uint8_t addressAndLengthFormatIdentifier = dataBuf[2];
-			if((dataBuf[1] == 0x00 || dataBuf[1] == 0x01) && dataBuf[2] == 0x44)
-			{
-				if(len == 11)
-				{
-					//needDescramble = dataBuf[1];
-					memoryAddress = dataBuf[3]<<24;
-					memoryAddress += dataBuf[4]<<16;
-					memoryAddress += dataBuf[5]<<8;
-					memoryAddress += dataBuf[6];
-					memorySize = dataBuf[7]<<24;;
-					memorySize += dataBuf[8]<<16;;
-					memorySize += dataBuf[9]<<8;;
-					memorySize += dataBuf[10];
-					
-                    if(memoryAddress >= PROG_START_ADDR
-                            && memoryAddress <= PROG_END_ADDR
-                            && memoryAddress + memorySize <= PROG_END_ADDR)
-                    {
-                        programmingSessionStatus = downloadRequested;
-
-                        // Erase Flash
-                        eraseFlag = 1;
-                        CANRxCurrFlash = memoryAddress;
-                        writeCrc = 0;
-
-                        sendBuf[0] = 0x10;
-                        sendBuf[1] = 0xFA; // Max chunk size
-                        blockSequenceCounter = 0x01;
-                        CANAnswer(0x74, sendBuf, 2);
-                    }else
-                    {
-                        errCode = 0x31; // requestOutOfRange
-                    }
-				}else
-				{
-					errCode = 0x13; // incorrectMessageLengthOrInvalidFormat
-				}
-			}else
-				errCode = 0x31; // requestOutOfRange
-		}
-		break;
-	case 0x36: // TransferData
-		if(programmingSessionStatus != downloadRequested)
-		{
-			errCode = 0x24; // requestSequenceError
-		}else
-		{
-			if(blockSequenceCounter == dataBuf[1])
-			{
-				// Write to flash
-				CANRxCurrDataPtr = &dataBuf[2];
-				writeLen = len-2;
-			}else
-				errCode = 0x73; // wrongBlockSequenceCounter
-		}
-		break;
-	case 0x37: // RequestTransferExit
-		if(programmingSessionStatus != downloadRequested)
-		{
-			errCode = 0x24; // requestSequenceError
-		}else
-		{
-			endFlag = 1;
-		}
-		break;
-	case 0x3E: // TesterPresent
-		sendBuf[0] = 0x00;
-		CANAnswer(0x7E, sendBuf, 1);
-		break;
-	default:
-		errCode = 0x12; // subFunctionNotSupported
-		break;
-	}
-	if(errCode) // Negative
-	{
-		sendBuf[0] = serviceId;
-		sendBuf[1] = errCode;
-		CANAnswer(0x7F, sendBuf, 2);
-	}
-}
-
-void CANAnswer(uint8_t serviceId, uint8_t *dataBuf, uint8_t len)
-{
-	if(len>6)
-		return;
-
-	TxMessage.Data[0] = len+1;
-	TxMessage.Data[1] = serviceId;
-	TxMessage.Data[2] = 0x00;
-	TxMessage.Data[3] = 0x00;
-	TxMessage.Data[4] = 0x00;
-	TxMessage.Data[5] = 0x00;
-	TxMessage.Data[6] = 0x00;
-	TxMessage.Data[7] = 0x00;
-
-	for(int i=2;i<len+2;i++)
-		TxMessage.Data[i] = dataBuf[i-2];
-
-	can_uds.tx_msg_func(TxMessage.Id, TxMessage.Data,TxMessage.DLC);
-}
-
-void CANRxPacket(uint8_t *dataBuf, uint8_t currlen)
-{
-	for(int i=0;i<currlen;i++)
-	{
-		CANRxDataBuf[CANRxCurrWr++] = dataBuf[i];
-	}
-	if(CANRxCurrWr >= CANRxCurrLen)
-		CANProcessPacket(CANRxDataBuf,CANRxCurrLen);
-}
-
-inline void CANRxError()
-{
-	CANRxCurrLen = 0;
-}
-
-void CANSendFC(uint8_t fs, uint8_t bs, uint8_t stmin)
-{
-	TxMessage.Data[0] = 0x30 + (fs & 0xF);
-	TxMessage.Data[1] = bs;
-	TxMessage.Data[2] = stmin;
-	TxMessage.Data[3] = 0x00;
-	TxMessage.Data[4] = 0x00;
-	TxMessage.Data[5] = 0x00;
-	TxMessage.Data[6] = 0x00;
-	TxMessage.Data[7] = 0x00;
-
-	can_uds.tx_msg_func(TxMessage.Id, TxMessage.Data,TxMessage.DLC);
-}
-
-void can_uds_handle(uint32_t id, uint8_t dlc, uint8_t *data)
-{
-    // 赋值给 RxMessage 结构体
-    RxMessage.Id = id;
-    RxMessage.DLC = dlc;
-    memcpy(RxMessage.Data, data, dlc);
-
-	static uint16_t RxLen = 0;
-	static uint8_t CF_SN = 0;
-	static uint8_t sendBuf[8];
-
-	switch((RxMessage.Data[0]) >> 4) // PCIType
-	{
-	case 2: // ConsecutiveFrame
-		if(CF_SN == (RxMessage.Data[0] & 0xF) && CANRxCurrLen)
-		{
-			CANRxPacket(&RxMessage.Data[1], 7);
-			if(++CF_SN>=0x10)
-				CF_SN = 0;
-		}else
-		{
-			CANRxError();
-		}
-		break;
-	case 0: // SingleFrame
-		RxLen = RxMessage.Data[0];
-		CANProcessPacket(&RxMessage.Data[1], RxLen);
-		break;
-	case 1: // FirstFrame
-		RxLen = (RxMessage.Data[0] & 0xF) << 8;
-		RxLen += RxMessage.Data[1];
-		if(writeLen) // Need wait
-		{
-			sendBuf[0] = RxMessage.Data[2];
-			sendBuf[1] = 0x78;
-			CANAnswer(0x7F, sendBuf, 2);
-			CANRxError();
-			break;
-		}
-		CANRxCurrLen = RxLen;
-		CANRxCurrWr = 0;
-		CF_SN = 1;
-		CANRxPacket(&RxMessage.Data[2], 6);
-		if(CANRxCurrLen > 0xff)
-		{
-			CANRxError();
-			CANSendFC(FC_FS_OVFLW, 0, 0);
-		}else
-			CANSendFC(FC_FS_CTS, 30, 8);
-		break;
-	case 3: // FlowControl
-		break;
-	default:
-		CANRxError();
-		break;
-	}
-}
-
-uint32_t flash_write_32(uint32_t address, uint32_t data)
-{
-	return FLASH_If_Write(address, &data, 1);
-}
-
-void can_uds_init(void)
-{
-	can_uds.tx_msg_func = &can_send;
-	can_uds.flash_write_32_func = &flash_write_32;
-	can_uds.flash_erase_app_func = &FLASH_If_Erase_App_Space;
-}
-
-/* this function is called in main loop */
-void can_uds_boot_poll(void)
-{
-	if(eraseFlag)
-	{
-		eraseFlag = 0;
+	case 00:
 		can_uds.flash_erase_app_func();
-
-		Serial_PutString("\n\n\r Erase Flash Done! \n\r\n\r");
+		rw_data.header = HEADER;
+		rw_data.iap_msg.status = IAP_NO_APP;
+		rw_data.iap_msg.version = 0xA0;
+		rw_data.iap_msg.transmitMethod = TRANSMIT_METHOD_CAN;
+		rw_data.ender = ENDER;
+		write_iap_status(&rw_data);
+		break;
+	case 01:
+		if(NEWAPP_VILIBLE == can_uds.IAP_if->funtionCheckFunction())
+		{
+				rw_data.header = HEADER;
+				rw_data.iap_msg.status = IAP_APP_DONE;
+				rw_data.iap_msg.version = 0x0A1;
+				rw_data.iap_msg.transmitMethod = TRANSMIT_METHOD_CAN;
+				rw_data.ender = ENDER;
+				write_iap_status(&rw_data);
+		}else{
+				rw_data.header = HEADER;
+				rw_data.iap_msg.status = IAP_NO_APP;
+				rw_data.iap_msg.version = 0x0A1;
+				rw_data.iap_msg.transmitMethod = TRANSMIT_METHOD_CAN;
+				rw_data.ender = ENDER;
+				write_iap_status(&rw_data);
+				send_uds_error_response(UDS_ERROR_INVALID_FORMAT); 
+				return;
+		}
+		break;
+	default:
+		send_uds_error_response(UDS_ERROR_REQUEST_OUT_OF_RANGE); 
+		break;
 	}
-	if(writeLen)
-	{
-		uint32_t data;
-		uint8_t *startPtr;
+    DEBUG_PRINT("Routine Control Validated (Service ID: 0x31)\n");
 
-		startPtr = CANRxCurrDataPtr;
-
-		if(tmpBufLen)
-		{
-			uint8_t shift = 0;
-			data = 0;
-			for(int i=0;i<tmpBufLen;i++)
-			{
-				data += (tmpBuf[i]) << shift;
-				shift+=8;
-				if(shift>24)
-					shift = 0;
-			}
-			for(int i=tmpBufLen;i<4;i++)
-			{
-				data += (*CANRxCurrDataPtr) << shift;
-				CANRxCurrDataPtr++;
-				shift+=8;
-				if(shift>24)
-					shift = 0;
-			}
-			can_uds.flash_write_32_func(CANRxCurrFlash,data);
-			CANRxCurrFlash +=4;
-			tmpBufLen = 0;
-		}
-
-		while(writeLen - (CANRxCurrDataPtr-startPtr) >= 4)
-		{
-			data = (*CANRxCurrDataPtr);
-			CANRxCurrDataPtr++;
-			data += (*CANRxCurrDataPtr) << 8;
-			CANRxCurrDataPtr++;
-			data += (*CANRxCurrDataPtr) << 16;
-			CANRxCurrDataPtr++;
-			data += (*CANRxCurrDataPtr) << 24;
-			CANRxCurrDataPtr++;
-			can_uds.flash_write_32_func(CANRxCurrFlash,data);
-			CANRxCurrFlash += 4;
-		}
-		if((CANRxCurrDataPtr-startPtr) < writeLen)
-		{
-			tmpBufLen = writeLen - (CANRxCurrDataPtr-startPtr);
-			for(int i=0;i<tmpBufLen;i++)
-			{
-				tmpBuf[i] = (*CANRxCurrDataPtr);
-				CANRxCurrDataPtr++;
-			}
-		}
-		writeLen = 0;
-		uint8_t t = blockSequenceCounter;
-		CANAnswer(0x76, &t, 1);
-		blockSequenceCounter++;
-	}
-	if(endFlag)
-	{
-		uint32_t data;
-		if(tmpBufLen)
-		{
-			uint8_t shift = 0;
-			data = 0;
-			for(int i=0;i<tmpBufLen;i++)
-			{
-				data += (tmpBuf[i]) << shift;
-				shift+=8;
-				if(shift>24)
-					shift = 0;
-			}
-			for(int i=tmpBufLen;i<4;i++)
-			{
-				data += 0xFF << shift;
-				shift+=8;
-				if(shift>24)
-					shift = 0;
-			}
-			can_uds.flash_write_32_func(CANRxCurrFlash,data);
-			CANRxCurrFlash +=4;
-			tmpBufLen = 0;
-		}
-
-		uint8_t sendBuf[2];
-		sendBuf[0] = writeCrc>>8;
-		sendBuf[1] = writeCrc & 0xff;
-		CANAnswer(0x77, sendBuf, 2);
-		endFlag = 0;
-
-		Serial_PutString("\n\n\r IAP load programming Done! \n\r\n\r");
-		while(1);	// debug~
-	}
+    uint8_t response[4] = {0x71, 0x01, 0xFF, data[2]}; // 正响应
+    send_iso15765_message(VALID_CAN_ID, response, sizeof(response));
 }
+
+// 服务 0x34: 请求下载 (Request Download)
+// 
+void uds_handle_request_download(uint8_t *data, uint16_t length) {
+    if (currentSessionStatus != activeSession) {
+        send_uds_error_response(UDS_ERROR_CONDITIONS_NOT_CORRECT); // 当前状态不支持下载
+        return;
+    }
+
+    if (data[0] != 0x00 || data[1] != 0x44) { // 校验格式标识是否为 0x00 0x44
+        send_uds_error_response(UDS_ERROR_REQUEST_OUT_OF_RANGE);
+        return;
+    }
+
+    DEBUG_PRINT("Processing Request Download (Service ID: 0x34)\n");
+    currentSessionStatus = downloadRequested; // 切换到下载请求状态
+    uint8_t response[4] = {0x74, 0x20, UDS_WRITE_BLOCK_SIZE >> 4, UDS_WRITE_BLOCK_SIZE & 0xFF}; // 正响应,告诉最大包为 1024
+    send_iso15765_message(VALID_CAN_ID, response, sizeof(response));
+}
+
+// 服务 0x36: 传输数据 (Transfer Data)
+void uds_handle_transfer_data(uint8_t *data, uint16_t length) {
+    if (currentSessionStatus != downloadRequested) {
+        send_uds_error_response(UDS_ERROR_CONDITIONS_NOT_CORRECT); // 当前状态不支持数据传输
+        return;
+    }
+
+    DEBUG_PRINT("Processing Transfer Data (Service ID: 0x36, Block Sequence: 0x01)\n");
+    
+    can_uds.flash_write_func(PROG_START_ADDR + ((data[0] - 1) * UDS_WRITE_BLOCK_SIZE), \
+    (uint32_t*)(data + 1), (length - 1) / 4);
+
+    uint8_t response[2] = {0x76, 0x01}; // 正响应
+    send_iso15765_message(VALID_CAN_ID, response, sizeof(response));
+}
+
+
+// 服务 0x37: 传输退出 (Transfer Exit)
+void uds_handle_transfer_exit(uint8_t *data, uint16_t length) {
+    if (currentSessionStatus != downloadRequested) {
+        send_uds_error_response(UDS_ERROR_CONDITIONS_NOT_CORRECT); // 当前状态不支持传输退出
+        return;
+    }
+
+    if (length != 0) { // 传输退出不应有额外数据
+        send_uds_error_response(UDS_ERROR_REQUEST_OUT_OF_RANGE);
+        return;
+    }
+
+    DEBUG_PRINT("Processing Transfer Exit (Service ID: 0x37)\n");
+    currentSessionStatus = noSession; // 切换到无会话状态
+    uint8_t response[1] = {0x77}; // 正响应
+    send_iso15765_message(VALID_CAN_ID, response, sizeof(response));
+}
+
+
+// 初始化接口函数
+void can_uds_init(void) {
+    can_uds.tx_msg_func = &can_send;
+    can_uds.flash_write_func = &FLASH_If_Write;
+    can_uds.flash_erase_app_func = &FLASH_If_Erase_App_Space;
+    can_uds.IAP_if = &iapInterface;
+}
+
+// 封装发送接口函数
+void send_iso15765_message(uint32_t canid, uint8_t *data, uint16_t length) {
+    if (length <= 7) {
+        // 单帧 (Single Frame)
+        uint8_t single_frame[8] = {0};
+        single_frame[0] = 0x00 | length; // 帧类型为单帧 (高 4 位为 0x0，低 4 位为数据长度)
+        memcpy(&single_frame[1], data, length); // 复制数据
+        can_uds.tx_msg_func(canid, single_frame, length + 1);
+    } else {
+        // 长数据需要多帧传输
+        uint8_t first_frame[8] = {0};
+        first_frame[0] = 0x10 | ((length >> 8) & 0x0F); // 帧类型为首帧 (高 4 位为 0x1)
+        first_frame[1] = length & 0xFF;                // 总长度低 8 位
+        memcpy(&first_frame[2], data, 6);              // 首帧最多包含 6 字节数据
+        can_uds.tx_msg_func(canid, first_frame, 8);
+
+        // 发送连续帧
+        uint16_t remaining_data = length - 6;
+        uint8_t *current_data = data + 6;
+        uint8_t sequence_number = 1;
+
+        while (remaining_data > 0) {
+            uint8_t consecutive_frame[8] = {0};
+            consecutive_frame[0] = 0x20 | (sequence_number & 0x0F); // 帧类型为连续帧 (高 4 位为 0x2)
+            uint8_t chunk_size = (remaining_data > 7) ? 7 : remaining_data; // 当前帧传输字节数
+            memcpy(&consecutive_frame[1], current_data, chunk_size);        // 复制数据
+            can_uds.tx_msg_func(canid, consecutive_frame, chunk_size + 1);
+
+            // 更新剩余数据和指针
+            remaining_data -= chunk_size;
+            current_data += chunk_size;
+            sequence_number++;
+        }
+    }
+}
+
 /************************ (C) COPYRIGHT Jason *****END OF FILE****/
+
+
+
