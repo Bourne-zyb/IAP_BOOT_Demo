@@ -199,7 +199,8 @@
 #define UDS_MAX_PAYLOAD_SIZE 1200
 #define UDS_WRITE_BLOCK_SIZE 1024
 // 宏定义有效的 CAN ID
-#define VALID_CAN_ID 0x7E0
+#define CANID_UPGRADE_TARGET 0x7E0
+#define CANID_UPGRADE_SENDER 0x7E8
 
 //#define DEBUG
 // 定义调试输出宏

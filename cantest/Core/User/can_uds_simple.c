@@ -49,7 +49,7 @@ void process_uds_service(uint8_t *data, uint16_t length);            // 服务�
 // ISO15765 主处理函数
 void can_uds_handle(uint32_t canid, uint8_t *data, uint8_t dlc) {
     // 检查传入的 CAN ID 是否有效
-    if (canid != VALID_CAN_ID) {
+    if (canid != CANID_UPGRADE_SENDER) {
         printf("CAN ID 0x%X is not valid. Ignoring message.\n", canid);
         return;
     }
@@ -183,7 +183,7 @@ void send_flow_control_frame(FlowControlType type, uint8_t block_size, uint8_t s
     DEBUG_PRINT("Sending Flow Control Frame: Type=0x%X, Block Size=%u, Separation Time=%u\n",
            type, block_size, separation_time);
 
-	send_iso15765_message(VALID_CAN_ID, flow_control_frame, 8);
+	send_iso15765_message(CANID_UPGRADE_SENDER, flow_control_frame, 8);
 }
 
 // 错误响应函数
@@ -198,7 +198,7 @@ void send_uds_error_response(UDS_ErrorCode error_code) {
 
     DEBUG_PRINT("Sending UDS Error Response: Service ID=0x%X, Error Code=0x%X\n",
                 error_response[1], error_code);
-	send_iso15765_message(VALID_CAN_ID, error_response, sizeof(error_response));
+	send_iso15765_message(CANID_UPGRADE_SENDER, error_response, sizeof(error_response));
 }
 
 // 服务 0x10: 会话控制 (Diagnostic Session Control)
@@ -217,7 +217,7 @@ void uds_handle_session_control(uint8_t *data, uint16_t length) {
     DEBUG_PRINT("Entering Programming Session (Service ID: 0x10, Sub-function: 0x02)\n");
     currentSessionStatus = activeSession; // 切换到活动会话状态
     uint8_t response[2] = {0x50, data[0]}; // 正响应
-    send_iso15765_message(VALID_CAN_ID, response, sizeof(response));
+    send_iso15765_message(CANID_UPGRADE_SENDER, response, sizeof(response));
 }
 
 // 服务 0x11:  (ECU Reset)
@@ -236,7 +236,7 @@ void uds_handle_ecu_reset(uint8_t *data, uint16_t length)
 
     DEBUG_PRINT("ECU Reset (Service ID: 0x11, Sub-function: 0x01)\n");
     uint8_t response[2] = {0x51, data[0]}; // 正响应
-    send_iso15765_message(VALID_CAN_ID, response, sizeof(response));
+    send_iso15765_message(CANID_UPGRADE_SENDER, response, sizeof(response));
 
     can_uds.IAP_if->funtionJumpFunction();
 }
@@ -294,7 +294,7 @@ void uds_handle_routine_control(uint8_t *data, uint16_t length)
     DEBUG_PRINT("Routine Control Validated (Service ID: 0x31)\n");
 
     uint8_t response[4] = {0x71, 0x01, 0xFF, data[2]}; // 正响应
-    send_iso15765_message(VALID_CAN_ID, response, sizeof(response));
+    send_iso15765_message(CANID_UPGRADE_SENDER, response, sizeof(response));
 }
 
 // 服务 0x34: 请求下载 (Request Download)
@@ -313,7 +313,7 @@ void uds_handle_request_download(uint8_t *data, uint16_t length) {
     DEBUG_PRINT("Processing Request Download (Service ID: 0x34)\n");
     currentSessionStatus = downloadRequested; // 切换到下载请求状态
     uint8_t response[4] = {0x74, 0x20, UDS_WRITE_BLOCK_SIZE >> 4, UDS_WRITE_BLOCK_SIZE & 0xFF}; // 正响应,告诉最大包为 1024
-    send_iso15765_message(VALID_CAN_ID, response, sizeof(response));
+    send_iso15765_message(CANID_UPGRADE_SENDER, response, sizeof(response));
 }
 
 // 服务 0x36: 传输数据 (Transfer Data)
@@ -329,7 +329,7 @@ void uds_handle_transfer_data(uint8_t *data, uint16_t length) {
     (uint32_t*)(data + 1), (length - 1) / 4);
 
     uint8_t response[2] = {0x76, 0x01}; // 正响应
-    send_iso15765_message(VALID_CAN_ID, response, sizeof(response));
+    send_iso15765_message(CANID_UPGRADE_SENDER, response, sizeof(response));
 }
 
 
@@ -348,7 +348,7 @@ void uds_handle_transfer_exit(uint8_t *data, uint16_t length) {
     DEBUG_PRINT("Processing Transfer Exit (Service ID: 0x37)\n");
     currentSessionStatus = noSession; // 切换到无会话状态
     uint8_t response[1] = {0x77}; // 正响应
-    send_iso15765_message(VALID_CAN_ID, response, sizeof(response));
+    send_iso15765_message(CANID_UPGRADE_SENDER, response, sizeof(response));
 }
 
 
