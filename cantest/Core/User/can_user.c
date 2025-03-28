@@ -232,7 +232,7 @@ void can_send(uint32_t id, uint8_t* data, uint8_t dlc) {
 
   // 发送CAN数据
   if (HAL_CAN_AddTxMessage(&hcan1, &txHeader, data, &txMailbox) != HAL_OK) {
-      while (1);
+     // while (1);
       // 处理发送错误
   }
 }

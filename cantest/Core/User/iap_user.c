@@ -210,9 +210,9 @@ void IAP_Init(void)
 
 int fputc(int ch, FILE *f)
 {
-	while(CDC_Transmit_FS((uint8_t *)&ch, 1) == USBD_BUSY)
-	{
-		iapInterface.DelayTimeMsFunction(1);   
-	}
+//	while(CDC_Transmit_FS((uint8_t *)&ch, 1) == USBD_BUSY)
+//	{
+//		iapInterface.DelayTimeMsFunction(1);   
+//	}
 }
 /************************ (C) COPYRIGHT Jason *****END OF FILE****/

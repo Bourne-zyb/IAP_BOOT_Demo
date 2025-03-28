@@ -49,7 +49,7 @@ void process_uds_service(uint8_t *data, uint16_t length);            // 服务�
 // ISO15765 主处理函数
 void can_uds_handle(uint32_t canid, uint8_t *data, uint8_t dlc) {
     // 检查传入的 CAN ID 是否有效
-    if (canid != CANID_UPGRADE_SENDER) {
+    if (canid != CANID_UPGRADE_TARGET) {
         printf("CAN ID 0x%X is not valid. Ignoring message.\n", canid);
         return;
     }
